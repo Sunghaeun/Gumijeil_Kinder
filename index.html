@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>구미제일교회 유치부 반별명단</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <h1 id="pageTitle">구미제일교회 유치부 반별명단</h1>
+  <div class="sub" id="pageSub">기준일: 2026.08.03</div>
+  <button class="header-logout" id="btnLogout">로그아웃</button>
+</header>
+
+<div id="loadingNote" class="loading-note">불러오는 중...</div>
+
+<div class="wrap" style="display:none">
+  <div class="toolbar">
+    <div class="stats" id="statsBar"></div>
+    <div class="actions">
+      <input type="text" id="searchBox" placeholder="이름 검색...">
+      <button class="btn-gold" id="btnAddPerson">+ 사람 추가</button>
+      <button class="btn-primary" id="btnPrint">🖨 인쇄 (A4)</button>
+      <button class="btn-ghost" id="btnReset">초기 데이터로 복원</button>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <button class="tab-btn active" id="tabRoster">📋 반별 명단</button>
+    <button class="tab-btn" id="tabTeachers">🧑‍🏫 선생님 명단</button>
+    <button class="tab-btn" id="tabAttendance">✅ 출석부</button>
+  </div>
+
+  <div id="rosterView" class="view-section active">
+    <div id="screenContent">
+      <div id="ageGroupsContainer"></div>
+      <div id="newClassContainer"></div>
+      <div id="altListContainer"></div>
+      <div class="footnote" id="footnoteBox"></div>
+    </div>
+  </div>
+
+  <div id="teacherView" class="view-section">
+    <div id="teacherRosterContainer"></div>
+  </div>
+
+  <div id="attendanceView" class="view-section">
+    <div class="att-toolbar">
+      <button class="btn-primary btn-mini" id="btnAddWeek">+ 새 주 추가</button>
+      <button class="btn-primary btn-mini" id="btnPrintAtt">🖨 출석부 인쇄 (A4)</button>
+      <button class="btn-primary btn-mini" id="btnPrintCal">🗓 캘린더 인쇄 (A4)</button>
+      <span style="font-size:12px;color:var(--muted);">체크박스를 눌러 출석을 표시하세요. 변경사항은 자동 저장됩니다.</span>
+    </div>
+    <div id="attendanceContainer"></div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+<div id="printAreaAtt"></div>
+<div id="printAreaCal"></div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h3 id="modalTitle">사람 추가</h3>
+    <div class="field"><label>반 선택</label><select id="fClass"></select></div>
+    <div class="field"><label>이름</label><input type="text" id="fName" placeholder="예: 홍길동"></div>
+    <div class="field"><label>생년월일 (예: 22.03.10)</label><input type="text" id="fDob" placeholder="YY.MM.DD"></div>
+    <div class="field"><label>성별</label><select id="fGender"><option value="">선택 안함</option><option value="남">남</option><option value="여">여</option></select></div>
+    <div class="field"><label>전화번호</label><input type="text" id="fPhone" placeholder="010-0000-0000"></div>
+    <div class="field"><label>주소</label><input type="text" id="fAddress" placeholder="주소"></div>
+    <div class="field"><label>비고 (부모 이름 등)</label><input type="text" id="fNote" placeholder="비고"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelModal">취소</button>
+      <button class="btn-primary" id="btnSaveModal">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Print Options Modal -->
+<div class="modal-backdrop" id="printOptBackdrop">
+  <div class="modal">
+    <h3>🖨 인쇄 항목 선택</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;">인쇄할 항목을 선택해주세요. (이름은 기본 포함)</p>
+    <div class="print-opt">
+      <label><input type="checkbox" id="poName" checked disabled> 이름</label>
+      <label><input type="checkbox" id="poDob" checked> 생년월일</label>
+      <label><input type="checkbox" id="poPhone" checked> 전화번호</label>
+      <label><input type="checkbox" id="poAddress"> 주소</label>
+      <label><input type="checkbox" id="poGender"> 성별</label>
+      <label><input type="checkbox" id="poNote"> 비고</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closePrintOpt()">취소</button>
+      <button class="btn-primary" onclick="doPrintRoster()">인쇄하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Attendance Print Week-Select Modal -->
+<div class="modal-backdrop" id="attPrintOptBackdrop">
+  <div class="modal" style="max-width:480px;">
+    <h3>🖨 출석부 인쇄 - 주차 선택</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">인쇄할 주차를 선택하세요. (월별로 묶여 표시됩니다)</p>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="btn-ghost btn-mini" onclick="attPrintSelectAll(true)">전체 선택</button>
+      <button class="btn-ghost btn-mini" onclick="attPrintSelectAll(false)">전체 해제</button>
+    </div>
+    <div id="attPrintWeekList" style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:10px;"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeAttPrintOpt()">취소</button>
+      <button class="btn-primary" onclick="doPrintAttendance()">인쇄하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Teacher Add/Edit Modal -->
+<div class="modal-backdrop" id="teacherModalBackdrop">
+  <div class="modal">
+    <h3 id="teacherModalTitle">선생님 추가</h3>
+    <div class="field"><label>이름</label><input type="text" id="tFName" placeholder="예: 홍길동"></div>
+    <div class="field"><label>생일 (예: 73.05.21)</label><input type="text" id="tFDob" placeholder="YY.MM.DD"></div>
+    <div class="field"><label>음력/양력</label>
+      <select id="tFCalType"><option value="solar">양력</option><option value="lunar">음력</option></select>
+    </div>
+    <div class="field"><label>성별</label>
+      <select id="tFGender"><option value="">선택 안함</option><option value="남">남</option><option value="여">여</option></select>
+    </div>
+    <div class="field"><label>전화번호</label><input type="text" id="tFPhone" placeholder="010-0000-0000"></div>
+    <div class="field"><label>비고</label><input type="text" id="tFNote" placeholder="비고"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelTeacherModal">취소</button>
+      <button class="btn-primary" id="btnSaveTeacherModal">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar Print Options Modal -->
+<div class="modal-backdrop" id="calPrintOptBackdrop">
+  <div class="modal">
+    <h3>🗓 캘린더 인쇄 옵션</h3>
+    <div class="field"><label>인쇄할 월</label><input type="month" id="calPrintMonth"></div>
+    <div class="field">
+      <label>표시 내용</label>
+      <div class="print-opt" style="margin-top:6px;margin-bottom:0;">
+        <label><input type="checkbox" id="calPrintBday" checked> 생일</label>
+        <label><input type="checkbox" id="calPrintAtt" checked> 출석</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeCalPrintOpt()">취소</button>
+      <button class="btn-primary" onclick="doPrintCalendar()">인쇄하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/data.js"></script>
+<script src="js/roster.js"></script>
+<script src="js/teachers.js"></script>
+<script src="js/search.js"></script>
+<script src="js/attendance.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/tabs.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
