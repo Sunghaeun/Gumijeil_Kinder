@@ -101,7 +101,7 @@ function calendarHtml() {
     const bdayList = bdays[mmdd] || [];
     let bdayHtml = "";
     if (bdayList.length) {
-      bdayHtml = bdayList.map(b => `<div class="cal-bday">${b.className}-${b.name}</div>`).join("");
+      bdayHtml = bdayList.map(b => `<div class="cal-bday">🎂 ${b.className}-${b.name}</div>`).join("");
     }
 
     // 날짜별 메모 표시 (클릭 시 해당 날짜 메모로 바로 이동, 출석 주차 토글과 분리)
@@ -111,7 +111,7 @@ function calendarHtml() {
     cells += `<div class="${cls.join(" ")}" onclick="calToggleDate('${dateStr}')">${d}${countsHtml}${bdayHtml}${noteHtml}</div>`;
   }
 
-  return `<div class="att-class-block cal-block"><h3>🗓 주별 캘린더
+  return `<div class="att-class-block cal-block"><h3>🗓 캘린더
     <span class="cal-nav"><button class="btn-mini btn-ghost" onclick="calPrevMonth()">‹ 이전달</button>
     <span class="cal-month-label">${calMonthLabel(ym)}</span>
     <button class="btn-mini btn-ghost" onclick="calNextMonth()">다음달 ›</button></span></h3>
