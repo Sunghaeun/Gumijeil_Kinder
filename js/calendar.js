@@ -100,7 +100,7 @@ function calendarHtml() {
     const bdayList = bdays[mmdd] || [];
     let bdayHtml = "";
     if (bdayList.length) {
-      bdayHtml = bdayList.map(b => `<div class="cal-bday">${b.className}-${b.name}</div>`).join("");
+      bdayHtml = bdayList.map(b => `<div class="cal-bday">🎂${b.className}-${b.name}</div>`).join("");
     }
 
     // 날짜별 메모 표시 (클릭 시 해당 날짜 메모로 바로 이동, 출석 주차 토글과 분리)
