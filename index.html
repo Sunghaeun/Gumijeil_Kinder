@@ -72,7 +72,7 @@
     <h3 id="modalTitle">사람 추가</h3>
     <div class="field"><label>반 선택</label><select id="fClass"></select></div>
     <div class="field"><label>이름</label><input type="text" id="fName" placeholder="예: 홍길동"></div>
-    <div class="field"><label>생년월일 (예: 22.03.10)</label><input type="text" id="fDob" placeholder="YY.MM.DD"></div>
+    <div class="field"><label>생년월일</label><input type="date" id="fDob"></div>
     <div class="field"><label>성별</label><select id="fGender"><option value="">선택 안함</option><option value="남">남</option><option value="여">여</option></select></div>
     <div class="field"><label>전화번호</label><input type="text" id="fPhone" placeholder="010-0000-0000"></div>
     <div class="field"><label>주소</label><input type="text" id="fAddress" placeholder="주소"></div>
@@ -144,7 +144,13 @@
   <div class="modal">
     <h3 id="teacherModalTitle">선생님 추가</h3>
     <div class="field"><label>이름</label><input type="text" id="tFName" placeholder="예: 홍길동"></div>
-    <div class="field"><label>생일 (예: 73.05.21)</label><input type="text" id="tFDob" placeholder="YY.MM.DD"></div>
+    <div class="field">
+      <label>생일</label>
+      <input type="date" id="tFDob">
+      <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--muted);cursor:pointer;">
+        <input type="checkbox" id="tFDobUnknownYear" style="width:15px;height:15px;accent-color:var(--navy);"> 출생연도 모름 (월/일만 기록)
+      </label>
+    </div>
     <div class="field"><label>음력/양력</label>
       <select id="tFCalType"><option value="solar">양력</option><option value="lunar">음력</option></select>
     </div>

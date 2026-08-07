@@ -19,8 +19,8 @@ button:active{transform:translateY(1px);}
 .btn-danger{background:var(--danger);color:#fff;}.btn-danger:hover{background:var(--danger-dark);}
 .btn-green{background:var(--green);color:#fff;}.btn-green:hover{background:var(--green-dark);}
 .btn-mini{padding:5px 9px;font-size:12px;border-radius:6px;}
-input[type=text],input[type=email],input[type=password],select{font-family:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px;background:#fff;}
-input[type=text]:focus,input[type=email]:focus,input[type=password]:focus,select:focus{outline:2px solid var(--gold);}
+input[type=text],input[type=email],input[type=password],input[type=date],select{font-family:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px;background:#fff;}
+input[type=text]:focus,input[type=email]:focus,input[type=password]:focus,input[type=date]:focus,select:focus{outline:2px solid var(--gold);}
 .age-section{margin-bottom:30px;}
 .age-header{display:flex;align-items:baseline;gap:10px;margin:0 0 12px 4px;border-bottom:2px solid var(--navy);padding-bottom:6px;}
 .age-header h2{margin:0;font-size:19px;color:var(--navy);}

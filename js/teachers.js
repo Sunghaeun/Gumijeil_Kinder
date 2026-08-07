@@ -34,7 +34,7 @@ function formatTeacherDob(t) {
 
 function teacherRowHtml(t) {
   const dobDisplay = formatTeacherDob(t);
-  const sub = [dobDisplay, t.phone, t.gender].filter(Boolean).join(" · ");
+  const sub = [dobDisplay, t.phone, t.address, t.gender].filter(Boolean).join(" · ");
   return `
   <li class="member-row" data-tid="${t.id}">
     <div class="member-main" onclick="toggleTeacherDetail('${t.id}')">
@@ -60,7 +60,9 @@ function toggleTeacherDetail(tid) { const el = document.getElementById("tdetail-
 function openTeacherAddModal() {
   editingTeacherId = null;
   document.getElementById("teacherModalTitle").textContent = "선생님 추가";
-  ["tFName","tFDob","tFPhone","tFAddress","tFNote"].forEach(id => document.getElementById(id).value = "");
+  ["tFName","tFPhone","tFAddress","tFNote"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("tFDob").value = "";
+  document.getElementById("tFDobUnknownYear").checked = false;
   document.getElementById("tFGender").value = "";
   document.getElementById("tFCalType").value = "solar";
   document.getElementById("teacherModalBackdrop").classList.add("open");
@@ -72,7 +74,9 @@ function openTeacherEditModal(tid) {
   editingTeacherId = tid;
   document.getElementById("teacherModalTitle").textContent = "선생님 정보 수정";
   document.getElementById("tFName").value = t.name || "";
-  document.getElementById("tFDob").value = t.dob || "";
+  const isUnknownYear = !!(t.dob && t.dob.split(".")[0].trim() === "00");
+  document.getElementById("tFDobUnknownYear").checked = isUnknownYear;
+  document.getElementById("tFDob").value = dotDobToIso(t.dob, 1900);
   document.getElementById("tFCalType").value = t.calType || "solar";
   document.getElementById("tFGender").value = t.gender || "";
   document.getElementById("tFPhone").value = t.phone || "";
@@ -87,9 +91,10 @@ function closeTeacherModal() { document.getElementById("teacherModalBackdrop").c
 function saveTeacherModal() {
   const name = document.getElementById("tFName").value.trim();
   if (!name) { alert("이름을 입력해주세요."); return; }
+  const unknownYear = document.getElementById("tFDobUnknownYear").checked;
   const d = {
     name,
-    dob: document.getElementById("tFDob").value.trim(),
+    dob: isoDobToDot(document.getElementById("tFDob").value, unknownYear),
     calType: document.getElementById("tFCalType").value,
     gender: document.getElementById("tFGender").value,
     phone: document.getElementById("tFPhone").value.trim(),

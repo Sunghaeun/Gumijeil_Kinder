@@ -7,7 +7,7 @@
 let attState = null;
 
 function defaultAttendanceState() {
-  return { weeks: [], records: {}, teacherRecords: {}, calMonth: new Date().toISOString().slice(0, 7), dateNotes: {}, freeNotes: [] };
+  return { weeks: [], records: {}, teacherRecords: {}, calMonth: new Date().toISOString().slice(0, 7), dateNotes: {}, freeNotes: [], autoInitedMonths: [] };
 }
 
 /* [변경] localStorage 대신 서버(API)에서 불러옵니다. */
@@ -18,6 +18,7 @@ async function loadAttendance() {
       if (!p.teacherRecords) p.teacherRecords = {};
       if (!p.calMonth) p.calMonth = new Date().toISOString().slice(0, 7);
       if (!p.dateNotes) p.dateNotes = {};
+      if (!p.autoInitedMonths) p.autoInitedMonths = [];
       if (!p.freeNotes) {
         p.freeNotes = [];
         if (p.calNote) {
@@ -55,6 +56,30 @@ function ensureWeekForDate(dateStr) {
   attState.weeks.push({ id, label: dateStr });
   attState.weeks.sort((a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
   return id;
+}
+
+/* [신규] "YYYY-MM" 월에 속하는 출석 주차만 골라냅니다. 아래 출석 체크 표는 이 함수로
+   걸러진 주차만 보여줍니다 (현재 캘린더가 보여주는 달과 항상 일치하도록). */
+function weeksInMonth(ym) {
+  return attState.weeks.filter(w => typeof w.label === "string" && w.label.slice(0, 7) === ym);
+}
+
+/* [신규] 캘린더에 표시된 달의 일요일들을 출석 주차로 자동 등록합니다.
+   한 번 초기화된 달은 다시 자동으로 채우지 않으므로, 특정 일요일(명절 등 예배 없는 주)을
+   사용자가 삭제하면 그 상태가 그대로 유지됩니다. 실제로 새 주차를 추가했으면 true를 반환합니다. */
+function ensureMonthSundaysInited(ym) {
+  if (!attState.autoInitedMonths) attState.autoInitedMonths = [];
+  if (attState.autoInitedMonths.includes(ym)) return false;
+  const [y, mo] = ym.split("-").map(Number);
+  const daysInMonth = new Date(y, mo, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (new Date(y, mo - 1, d).getDay() === 0) {
+      const dateStr = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      ensureWeekForDate(dateStr);
+    }
+  }
+  attState.autoInitedMonths.push(ym);
+  return true;
 }
 
 function addWeek() {
@@ -149,9 +174,10 @@ function weekClassCount(cls, weekId) {
 
 /* ===== 학생 반별 출석 표 ===== */
 
-function attClassTableHtml(cls) {
+function attClassTableHtml(cls, weeks) {
+  weeks = weeks || attState.weeks;
   if (!cls.members.length) return `<div class="att-class-block"><h3>${escapeHtml(cls.name)}</h3><div class="att-empty">인원 없음</div></div>`;
-  const weekHeaders = attState.weeks.map(w => `
+  const weekHeaders = weeks.map(w => `
     <th class="att-week">${escapeHtml(w.label)}<button class="week-del" title="이 주 삭제" onclick="removeWeek('${w.id}')">×</button>
     <br><button class="bulk-btn" onclick="bulkCheckClass('${cls.id}','${w.id}')">전원✓</button>
     <button class="bulk-btn" style="background:var(--danger);" onclick="uncheckClass('${cls.id}','${w.id}')">전원✗</button></th>`).join("");
@@ -159,15 +185,15 @@ function attClassTableHtml(cls) {
   const rows = cls.members.map(m => {
     const rec = attState.records[m.id] || {};
     let total = 0;
-    const cells = attState.weeks.map(w => {
+    const cells = weeks.map(w => {
       const chk = !!rec[w.id]; if (chk) total++;
       return `<td><input type="checkbox" class="att-check" ${chk?"checked":""} onchange="toggleAttendance('${m.id}','${w.id}',this.checked)"></td>`;
     }).join("");
     return `<tr><td class="att-name">${escapeHtml(m.name)}</td>${cells}<td class="att-total">${total}</td></tr>`;
   }).join("");
 
-  const weekSums = attState.weeks.map(w => `<td>${weekClassCount(cls, w.id)}</td>`).join("");
-  const grand = cls.members.reduce((s, m) => s + attState.weeks.reduce((s2, w) => s2 + ((attState.records[m.id]||{})[w.id]?1:0), 0), 0);
+  const weekSums = weeks.map(w => `<td>${weekClassCount(cls, w.id)}</td>`).join("");
+  const grand = cls.members.reduce((s, m) => s + weeks.reduce((s2, w) => s2 + ((attState.records[m.id]||{})[w.id]?1:0), 0), 0);
 
   return `<div class="att-class-block"><h3>${escapeHtml(cls.name)} (${cls.members.length}명)</h3>
     <table class="att-table"><tr><th>이름</th>${weekHeaders}<th class="att-total">합계</th></tr>
@@ -176,9 +202,10 @@ function attClassTableHtml(cls) {
 
 /* ===== 교사 출석 표 ===== */
 
-function teacherTableHtml() {
+function teacherTableHtml(weeks) {
+  weeks = weeks || attState.weeks;
   if (!state.teachers.length) return `<div class="att-class-block"><h3>교사</h3><div class="att-empty">교사 없음</div></div>`;
-  const weekHeaders = attState.weeks.map(w => `
+  const weekHeaders = weeks.map(w => `
     <th class="att-week">${escapeHtml(w.label)}<button class="week-del" title="삭제" onclick="removeWeek('${w.id}')">×</button>
     <br><button class="bulk-btn" onclick="bulkCheckTeachers('${w.id}')">전원✓</button>
     <button class="bulk-btn" style="background:var(--danger);" onclick="uncheckTeachers('${w.id}')">전원✗</button></th>`).join("");
@@ -186,15 +213,15 @@ function teacherTableHtml() {
   const rows = state.teachers.map(t => {
     const rec = attState.teacherRecords[t.id] || {};
     let total = 0;
-    const cells = attState.weeks.map(w => {
+    const cells = weeks.map(w => {
       const chk = !!rec[w.id]; if (chk) total++;
       return `<td><input type="checkbox" class="att-check" ${chk?"checked":""} onchange="toggleTeacherAttendance('${t.id}','${w.id}',this.checked)"></td>`;
     }).join("");
     return `<tr><td class="att-name">${escapeHtml(t.name)}</td>${cells}<td class="att-total">${total}</td></tr>`;
   }).join("");
 
-  const weekSums = attState.weeks.map(w => `<td>${weekTeacherCount(w.id)}</td>`).join("");
-  const grand = attState.weeks.reduce((s, w) => s + weekTeacherCount(w.id), 0);
+  const weekSums = weeks.map(w => `<td>${weekTeacherCount(w.id)}</td>`).join("");
+  const grand = weeks.reduce((s, w) => s + weekTeacherCount(w.id), 0);
   return `<div class="att-class-block teacher-block">
     <h3>👩‍🏫 교사 (${state.teachers.length}명)</h3>
     <table class="att-table"><tr><th>이름</th>${weekHeaders}<th class="att-total">합계</th></tr>
@@ -203,9 +230,10 @@ function teacherTableHtml() {
 
 /* ===== 주별 합계 요약 ===== */
 
-function weeklySummaryTableHtml() {
+function weeklySummaryTableHtml(weeks) {
+  weeks = weeks || attState.weeks;
   const sDenom = studentDenominator(), tDenom = teacherDenominator();
-  const rows = attState.weeks.map(w => {
+  const rows = weeks.map(w => {
     const sC = weekStudentCount(w.id), tC = weekTeacherCount(w.id);
     return `<tr><td class="att-name">${escapeHtml(w.label)}</td><td>${sC} / ${sDenom}명</td><td>${tC} / ${tDenom}명</td></tr>`;
   }).join("");
@@ -218,21 +246,22 @@ function weeklySummaryTableHtml() {
 function renderAttendance() {
   const container = document.getElementById("attendanceContainer");
   let html = calendarHtml();
-  if (!attState.weeks.length) {
-    html += `<div class="att-empty">주차가 없습니다. 캘린더에서 날짜를 클릭하거나 "+ 새 주 추가" 버튼을 눌러 시작하세요.</div>`;
+  const monthWeeks = weeksInMonth(attState.calMonth);
+  if (!monthWeeks.length) {
+    html += `<div class="att-empty">이번 달에 등록된 출석 주차가 없습니다. (일요일은 자동으로 추가돼요 — 캘린더에서 삭제한 주차만 다시 나타나지 않습니다) 필요하면 "+ 새 주 추가" 버튼으로 직접 추가할 수 있어요.</div>`;
     container.innerHTML = html; bindCalNoteEvents(); return;
   }
-  html += weeklySummaryTableHtml() + teacherTableHtml();
+  html += weeklySummaryTableHtml(monthWeeks) + teacherTableHtml(monthWeeks);
   const ages = [...new Set(state.classes.filter(c => c.kind === "regular").map(c => c.age))];
   ages.forEach(age => {
     const classesOfAge = state.classes.filter(c => c.kind === "regular" && c.age === age);
     html += `<h2 style="margin:18px 0 8px 4px;color:var(--navy);font-size:16px;">${escapeHtml(age)}</h2>`;
-    html += classesOfAge.map(c => attClassTableHtml(c)).join("");
+    html += classesOfAge.map(c => attClassTableHtml(c, monthWeeks)).join("");
   });
   const newCls = findClass("c_new");
-  if (newCls?.members.length) { html += `<h2 style="margin:18px 0 8px 4px;color:var(--navy);font-size:16px;">${escapeHtml(newCls.name)}</h2>` + attClassTableHtml(newCls); }
+  if (newCls?.members.length) { html += `<h2 style="margin:18px 0 8px 4px;color:var(--navy);font-size:16px;">${escapeHtml(newCls.name)}</h2>` + attClassTableHtml(newCls, monthWeeks); }
   const altCls = findClass("c_alt");
-  if (altCls?.members.length) { html += `<h2 style="margin:18px 0 8px 4px;color:var(--navy);font-size:16px;">별명부</h2>` + attClassTableHtml(altCls); }
+  if (altCls?.members.length) { html += `<h2 style="margin:18px 0 8px 4px;color:var(--navy);font-size:16px;">별명부</h2>` + attClassTableHtml(altCls, monthWeeks); }
   container.innerHTML = html;
   bindCalNoteEvents();
 }

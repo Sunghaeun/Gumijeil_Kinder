@@ -931,6 +931,37 @@ function genMemberId() { return "m" + (state.uidCounter++); }
 function genTeacherId() { return "t" + (state.teacherUidCounter++); }
 function genClassId() { return "c" + Date.now(); }
 
+/* ===== 생년월일 달력 입력 변환 =====
+   저장 형식은 원래대로 "YY.MM.DD"(2자리 연도)를 유지하고, <input type="date"> 달력
+   위젯과 서로 변환하는 도우미만 추가합니다. 선생님 데이터 중 연도를 모르는 경우 "00"을
+   특수값으로 써왔는데(예: "00.01.25"), 그 의미를 그대로 보존하기 위해 달력에는 임시로
+   1900년을 넣어 표시하고, 저장할 때 unknownYear가 true면 다시 "00"으로 되돌립니다. */
+function dotDobToIso(dob, unknownYearPlaceholder) {
+  if (!dob) return "";
+  const parts = dob.split(".");
+  if (parts.length < 3) return "";
+  const yy = parts[0].trim(), mo = parts[1].trim().padStart(2, "0"), dd = parts[2].trim().padStart(2, "0");
+  if (!/^\d{1,2}$/.test(mo) || !/^\d{1,2}$/.test(dd)) return "";
+  let year;
+  if (yy === "00") {
+    year = unknownYearPlaceholder || 1900;
+  } else {
+    const yyNum = parseInt(yy, 10);
+    if (isNaN(yyNum)) return "";
+    const pivot = new Date().getFullYear() % 100;
+    year = yyNum <= pivot ? 2000 + yyNum : 1900 + yyNum;
+  }
+  return `${year}-${mo}-${dd}`;
+}
+
+function isoDobToDot(iso, unknownYear) {
+  if (!iso) return "";
+  const [y, mo, dd] = iso.split("-");
+  if (!y || !mo || !dd) return "";
+  const yy = unknownYear ? "00" : y.slice(2);
+  return `${yy}.${mo}.${dd}`;
+}
+
 function toast(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg; el.classList.add("show");

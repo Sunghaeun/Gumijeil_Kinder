@@ -167,7 +167,8 @@ function toggleDetail(mid) { const el = document.getElementById("detail-" + mid)
 function openAddModal(preferClassId) {
   editingMemberId = null;
   document.getElementById("modalTitle").textContent = "사람 추가";
-  ["fName","fDob","fPhone","fAddress","fNote"].forEach(id => document.getElementById(id).value = "");
+  ["fName","fPhone","fAddress","fNote"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("fDob").value = "";
   document.getElementById("fGender").value = "";
   if (preferClassId) document.getElementById("fClass").value = preferClassId;
   document.getElementById("modalBackdrop").classList.add("open");
@@ -180,7 +181,7 @@ function openEditModal(mid) {
   document.getElementById("modalTitle").textContent = "사람 정보 수정";
   document.getElementById("fClass").value = loc.cls.id;
   document.getElementById("fName").value = m.name || "";
-  document.getElementById("fDob").value = m.dob || "";
+  document.getElementById("fDob").value = dotDobToIso(m.dob);
   document.getElementById("fGender").value = m.gender || "";
   document.getElementById("fPhone").value = m.phone || "";
   document.getElementById("fAddress").value = m.address || "";
@@ -195,7 +196,7 @@ function saveModal() {
   const name = document.getElementById("fName").value.trim();
   if (!name) { alert("이름을 입력해주세요."); return; }
   const targetClassId = document.getElementById("fClass").value;
-  const d = { name, dob: document.getElementById("fDob").value.trim(), gender: document.getElementById("fGender").value,
+  const d = { name, dob: isoDobToDot(document.getElementById("fDob").value), gender: document.getElementById("fGender").value,
     phone: document.getElementById("fPhone").value.trim(), address: document.getElementById("fAddress").value.trim(),
     note: document.getElementById("fNote").value.trim() };
 
