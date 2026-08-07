@@ -50,6 +50,7 @@ function teacherRowHtml(t) {
     <div><span class="lbl">생일</span>${escapeHtml(dobDisplay)||"-"}</div>
     <div><span class="lbl">성별</span>${escapeHtml(t.gender)||"-"}</div>
     <div><span class="lbl">전화번호</span>${escapeHtml(t.phone)||"-"}</div>
+    <div><span class="lbl">주소</span>${escapeHtml(t.address)||"-"}</div>
     <div><span class="lbl">비고</span>${escapeHtml(t.note)||"-"}</div>
   </div>`;
 }
@@ -59,7 +60,7 @@ function toggleTeacherDetail(tid) { const el = document.getElementById("tdetail-
 function openTeacherAddModal() {
   editingTeacherId = null;
   document.getElementById("teacherModalTitle").textContent = "선생님 추가";
-  ["tFName","tFDob","tFPhone","tFNote"].forEach(id => document.getElementById(id).value = "");
+  ["tFName","tFDob","tFPhone","tFAddress","tFNote"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("tFGender").value = "";
   document.getElementById("tFCalType").value = "solar";
   document.getElementById("teacherModalBackdrop").classList.add("open");
@@ -75,6 +76,7 @@ function openTeacherEditModal(tid) {
   document.getElementById("tFCalType").value = t.calType || "solar";
   document.getElementById("tFGender").value = t.gender || "";
   document.getElementById("tFPhone").value = t.phone || "";
+  document.getElementById("tFAddress").value = t.address || "";
   document.getElementById("tFNote").value = t.note || "";
   document.getElementById("teacherModalBackdrop").classList.add("open");
   document.getElementById("tFName").focus();
@@ -91,6 +93,7 @@ function saveTeacherModal() {
     calType: document.getElementById("tFCalType").value,
     gender: document.getElementById("tFGender").value,
     phone: document.getElementById("tFPhone").value.trim(),
+    address: document.getElementById("tFAddress").value.trim(),
     note: document.getElementById("tFNote").value.trim()
   };
   if (editingTeacherId) {
@@ -110,4 +113,33 @@ function deleteTeacher(tid) {
   state.teachers = state.teachers.filter(x => x.id !== tid);
   if (attState.teacherRecords) delete attState.teacherRecords[tid];
   saveState(); saveAttendance(); render(); toast(`${t.name} 선생님을 삭제했습니다.`);
+}
+
+/* ===== 선생님 명단 인쇄 ===== */
+
+function buildPrintAreaTeachers() {
+  const container = document.getElementById("printAreaTeachers");
+  if (!container) return;
+  const rows = state.teachers.map(t => `
+    <tr>
+      <td>${escapeHtml(t.name) || "-"}</td>
+      <td>${escapeHtml(formatTeacherDob(t)) || "-"}</td>
+      <td>${escapeHtml(t.gender) || "-"}</td>
+      <td>${escapeHtml(t.phone) || "-"}</td>
+      <td>${escapeHtml(t.address) || "-"}</td>
+      <td>${escapeHtml(t.note) || "-"}</td>
+    </tr>`).join("");
+  container.innerHTML = `<div class="print-page"><div class="print-header">
+    <div class="p-title">${escapeHtml(state.title)} · 선생님 명단 (${state.teachers.length}명)</div>
+    <div class="p-date">기준일: ${escapeHtml(state.updated)}</div></div>
+    <table class="print-table">
+      <tr><th>이름</th><th>생일</th><th>성별</th><th>전화번호</th><th>주소</th><th>비고</th></tr>
+      ${rows || `<tr><td colspan="6" style="text-align:center;color:#666;">등록된 선생님이 없습니다.</td></tr>`}
+    </table></div>`;
+}
+
+function doPrintTeachers() {
+  buildPrintAreaTeachers();
+  document.body.classList.add("print-teachers");
+  setTimeout(() => window.print(), 100);
 }

@@ -5,9 +5,9 @@ function render() {
   renderStats(); renderAgeGroups();
   renderSpecialCard("newClassContainer", findClass("c_new"), "new-card");
   renderSpecialCard("altListContainer", findClass("c_alt"), "alt-card");
-  renderFootnote(); populateClassSelect();
+  renderFootnote(); populateClassSelect(); populateAgeDatalist();
   renderTeacherRoster();
-  buildPrintArea(); renderAttendance(); buildPrintAreaAtt();
+  buildPrintArea(); renderAttendance(); buildPrintAreaAtt(); buildPrintAreaTeachers();
 }
 
 function renderStats() {
@@ -94,6 +94,13 @@ function populateClassSelect() {
     const label = c.kind === "regular" ? `${c.age} ${c.name}` : c.name;
     const opt = document.createElement("option"); opt.value = c.id; opt.textContent = label; sel.appendChild(opt);
   });
+}
+
+function populateAgeDatalist() {
+  const dl = document.getElementById("ageOptions");
+  if (!dl) return;
+  const ages = [...new Set(state.classes.filter(c => c.kind === "regular").map(c => c.age))];
+  dl.innerHTML = ages.map(age => `<option value="${escapeHtml(age)}"></option>`).join("");
 }
 
 /* ===== [수정1] 인쇄 옵션 모달 & 동적 프린트 ===== */
@@ -236,4 +243,28 @@ function openRestoreFlow(mid) {
   const { _fromClass, ...clean } = m;
   regularClasses[idx].members.push(clean);
   saveState(); render(); toast(`${m.name} 님을 ${regularClasses[idx].name}(으)로 복귀했습니다.`);
+}
+
+/* ===== 반 추가 ===== */
+
+function openClassModal() {
+  populateAgeDatalist();
+  ["cAge", "cName", "cTeachers"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("classModalBackdrop").classList.add("open");
+  document.getElementById("cAge").focus();
+}
+
+function closeClassModal() { document.getElementById("classModalBackdrop").classList.remove("open"); }
+
+function saveClassModal() {
+  const age = document.getElementById("cAge").value.trim();
+  const name = document.getElementById("cName").value.trim();
+  const teachersRaw = document.getElementById("cTeachers").value.trim();
+  if (!age) { alert("학년/연령을 입력해주세요. (예: 5세)"); return; }
+  if (!name) { alert("반 이름을 입력해주세요."); return; }
+  const teachers = teachersRaw ? teachersRaw.split(",").map(s => s.trim()).filter(Boolean) : [];
+
+  state.classes.push({ id: genClassId(), kind: "regular", age, pastor: "", name, teachers, members: [] });
+  saveState(); render(); closeClassModal();
+  toast(`'${age} ${name}' 반을 추가했습니다.`);
 }

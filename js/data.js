@@ -920,12 +920,6 @@ function saveState() {
   apiPut("roster", state).catch(() => toast("⚠ 저장 실패 - 인터넷 연결을 확인하세요."));
 }
 
-function resetToSeed() {
-  if (!confirm("모든 변경사항을 지우고 원본 명단으로 되돌릴까요?")) return;
-  state = buildInitialState(SEED_DATA);
-  saveState(); render(); toast("초기 데이터로 복원했습니다.");
-}
-
 /* ===== 유틸 ===== */
 
 function findClass(classId) { return state.classes.find(c => c.id === classId); }
@@ -935,6 +929,7 @@ function findMemberLocation(memberId) {
 }
 function genMemberId() { return "m" + (state.uidCounter++); }
 function genTeacherId() { return "t" + (state.teacherUidCounter++); }
+function genClassId() { return "c" + Date.now(); }
 
 function toast(msg) {
   const el = document.getElementById("toast");

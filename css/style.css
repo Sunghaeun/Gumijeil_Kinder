@@ -108,7 +108,7 @@ table.summary-table td.att-name{text-align:left;}
 .cal-hint{font-size:11.5px;color:var(--muted);padding:0 16px 12px;}
 
 /* 인쇄 전용 */
-#printArea,#printAreaAtt{display:none;}
+#printArea,#printAreaAtt,#printAreaTeachers{display:none;}
 .print-page{padding:0;}
 .print-page h2{font-size:17px;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid #000;color:#000;}
 .print-class-block{margin-bottom:12px;}
@@ -217,6 +217,9 @@ table.att-print-table td.p-att-total,table.att-print-table th:last-child{font-we
   body.print-cal #printArea{display:none !important;}
   body.print-cal #printAreaCal{display:block !important;}
   body.print-cal .wrap{display:none !important;}
+  body.print-teachers #printArea{display:none !important;}
+  body.print-teachers #printAreaTeachers{display:block !important;}
+  body.print-teachers .wrap{display:none !important;}
   .print-page{break-after:page;page-break-after:always;}
   .print-page:last-child{break-after:auto;page-break-after:auto;}
   .print-class-block{break-inside:avoid;}

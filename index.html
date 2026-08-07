@@ -23,8 +23,8 @@
     <div class="actions">
       <input type="text" id="searchBox" placeholder="이름 검색...">
       <button class="btn-gold" id="btnAddPerson">+ 사람 추가</button>
+      <button class="btn-gold" id="btnAddClass">+ 반 추가</button>
       <button class="btn-primary" id="btnPrint">🖨 인쇄 (A4)</button>
-      <button class="btn-ghost" id="btnReset">초기 데이터로 복원</button>
     </div>
   </div>
 
@@ -44,6 +44,9 @@
   </div>
 
   <div id="teacherView" class="view-section">
+    <div class="att-toolbar">
+      <button class="btn-primary btn-mini" id="btnPrintTeachers">🖨 선생님 명단 인쇄 (A4)</button>
+    </div>
     <div id="teacherRosterContainer"></div>
   </div>
 
@@ -61,6 +64,7 @@
 <div id="printArea"></div>
 <div id="printAreaAtt"></div>
 <div id="printAreaCal"></div>
+<div id="printAreaTeachers"></div>
 
 <!-- Add / Edit Modal -->
 <div class="modal-backdrop" id="modalBackdrop">
@@ -76,6 +80,24 @@
     <div class="modal-actions">
       <button class="btn-ghost" id="btnCancelModal">취소</button>
       <button class="btn-primary" id="btnSaveModal">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Class Modal -->
+<div class="modal-backdrop" id="classModalBackdrop">
+  <div class="modal">
+    <h3>반 추가</h3>
+    <div class="field">
+      <label>학년/연령</label>
+      <input type="text" id="cAge" list="ageOptions" placeholder="예: 5세 (기존 학년 선택 또는 새로 입력)">
+      <datalist id="ageOptions"></datalist>
+    </div>
+    <div class="field"><label>반 이름</label><input type="text" id="cName" placeholder="예: 소망반"></div>
+    <div class="field"><label>담당 선생님 (쉼표로 구분)</label><input type="text" id="cTeachers" placeholder="예: 박은혜, 최다정"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelClassModal">취소</button>
+      <button class="btn-primary" id="btnSaveClassModal">저장</button>
     </div>
   </div>
 </div>
@@ -130,6 +152,7 @@
       <select id="tFGender"><option value="">선택 안함</option><option value="남">남</option><option value="여">여</option></select>
     </div>
     <div class="field"><label>전화번호</label><input type="text" id="tFPhone" placeholder="010-0000-0000"></div>
+    <div class="field"><label>주소</label><input type="text" id="tFAddress" placeholder="주소"></div>
     <div class="field"><label>비고</label><input type="text" id="tFNote" placeholder="비고"></div>
     <div class="modal-actions">
       <button class="btn-ghost" id="btnCancelTeacherModal">취소</button>
