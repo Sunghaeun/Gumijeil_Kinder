@@ -263,6 +263,10 @@ function saveClassModal() {
   const teachersRaw = document.getElementById("cTeachers").value.trim();
   if (!age) { alert("학년/연령을 입력해주세요. (예: 5세)"); return; }
   if (!name) { alert("반 이름을 입력해주세요."); return; }
+
+  const dup = state.classes.some(c => c.kind === "regular" && c.age === age && c.name === name);
+  if (dup) { alert(`'${age} ${name}' 반은 이미 있습니다. 다른 이름을 입력해주세요.`); return; }
+
   const teachers = teachersRaw ? teachersRaw.split(",").map(s => s.trim()).filter(Boolean) : [];
 
   state.classes.push({ id: genClassId(), kind: "regular", age, pastor: "", name, teachers, members: [] });
