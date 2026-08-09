@@ -10,7 +10,6 @@ function switchTab(tab) {
   document.getElementById("attendanceView").classList.toggle("active", tab === "attendance");
   document.getElementById("btnPrint").style.display = tab === "roster" ? "" : "none";
   document.getElementById("searchBox").style.display = tab === "roster" ? "" : "none";
-  document.getElementById("btnAddPerson").style.display = tab === "roster" ? "" : "none";
   document.getElementById("btnAddClass").style.display = tab === "roster" ? "" : "none";
 
 }

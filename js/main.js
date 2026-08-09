@@ -4,7 +4,7 @@
 function bindEvents() {
   document.getElementById("btnAddPerson").addEventListener("click", () => openAddModal(null));
   document.getElementById("btnPrint").addEventListener("click", openPrintOpt);
-  document.getElementById("btnAddClass").addEventListener("click", openClassModal);
+  document.getElementById("btnAddClass").addEventListener("click", () => openClassModal());
   document.getElementById("btnCancelClassModal").addEventListener("click", closeClassModal);
   document.getElementById("btnSaveClassModal").addEventListener("click", saveClassModal);
   document.getElementById("classModalBackdrop").addEventListener("click", (e) => { if (e.target.id === "classModalBackdrop") closeClassModal(); });
@@ -24,7 +24,8 @@ function bindEvents() {
   document.getElementById("btnCancelTeacherModal").addEventListener("click", closeTeacherModal);
   document.getElementById("btnSaveTeacherModal").addEventListener("click", saveTeacherModal);
   document.getElementById("teacherModalBackdrop").addEventListener("click", (e) => { if (e.target.id === "teacherModalBackdrop") closeTeacherModal(); });
-  document.getElementById("btnPrintTeachers").addEventListener("click", doPrintTeachers);
+  document.getElementById("btnPrintTeachers").addEventListener("click", openTeacherPrintOpt);
+  document.getElementById("teacherPrintOptBackdrop").addEventListener("click", (e) => { if (e.target.id === "teacherPrintOptBackdrop") closeTeacherPrintOpt(); });
   window.addEventListener("afterprint", () => { document.body.classList.remove("print-att", "print-cal", "print-teachers"); });
 
   const logoutBtn = document.getElementById("btnLogout");

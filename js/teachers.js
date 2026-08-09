@@ -2,6 +2,7 @@
 /* ===== 교사 관리 (선생님 명단 탭) ===== */
 
 let editingTeacherId = null;
+let draggedTeacherId = null;
 
 function renderTeacherRoster() {
   const container = document.getElementById("teacherRosterContainer");
@@ -12,7 +13,7 @@ function renderTeacherRoster() {
     <div class="class-grid" style="grid-template-columns:1fr;">
       <div class="class-card">
         <div class="class-card-head">
-          <div><div class="title">유치부 교사</div><div class="teachers">담임/보조 교사 전체 명단</div></div>
+          <div><div class="title">유치부 교사</div><div class="teachers">담임/보조 교사 전체 명단 (⠿ 아이콘을 드래그하면 순서를 바꿀 수 있어요)</div></div>
           <div class="count-badge">${state.teachers.length}명</div>
         </div>
         <ul class="member-list">${rows || `<div class="empty-note">등록된 선생님이 없습니다.</div>`}</ul>
@@ -20,6 +21,7 @@ function renderTeacherRoster() {
       </div>
     </div>
   </div>`;
+  bindTeacherDragEvents();
 }
 
 function formatTeacherDob(t) {
@@ -37,6 +39,7 @@ function teacherRowHtml(t) {
   const sub = [dobDisplay, t.phone, t.address, t.gender].filter(Boolean).join(" · ");
   return `
   <li class="member-row" data-tid="${t.id}">
+    <span class="drag-handle" draggable="true" title="드래그해서 순서 변경">⠿</span>
     <div class="member-main" onclick="toggleTeacherDetail('${t.id}')">
       <div class="member-name">${escapeHtml(t.name)}${genderTag(t.gender)}</div>
       <div class="member-sub">${escapeHtml(sub) || "&nbsp;"}</div>
@@ -53,6 +56,65 @@ function teacherRowHtml(t) {
     <div><span class="lbl">주소</span>${escapeHtml(t.address)||"-"}</div>
     <div><span class="lbl">비고</span>${escapeHtml(t.note)||"-"}</div>
   </div>`;
+}
+
+/* ===== 드래그 앤 드롭으로 선생님 순서 변경 ===== */
+
+function bindTeacherDragEvents() {
+  const container = document.getElementById("teacherRosterContainer");
+  if (!container) return;
+
+  container.querySelectorAll(".drag-handle").forEach(handle => {
+    handle.addEventListener("dragstart", (e) => {
+      const li = handle.closest(".member-row");
+      if (!li) return;
+      draggedTeacherId = li.dataset.tid;
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", draggedTeacherId); } catch (err) {}
+      try { e.dataTransfer.setDragImage(li, 20, 20); } catch (err) {}
+      li.classList.add("dragging");
+    });
+    handle.addEventListener("dragend", () => {
+      container.querySelectorAll(".member-row").forEach(li => li.classList.remove("dragging", "drag-over-top", "drag-over-bottom"));
+      draggedTeacherId = null;
+    });
+  });
+
+  container.querySelectorAll(".member-row[data-tid]").forEach(li => {
+    li.addEventListener("dragover", (e) => {
+      if (!draggedTeacherId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect = li.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      li.classList.toggle("drag-over-top", before);
+      li.classList.toggle("drag-over-bottom", !before);
+    });
+    li.addEventListener("dragleave", () => {
+      li.classList.remove("drag-over-top", "drag-over-bottom");
+    });
+    li.addEventListener("drop", (e) => {
+      e.preventDefault();
+      li.classList.remove("drag-over-top", "drag-over-bottom");
+      const targetId = li.dataset.tid;
+      if (!draggedTeacherId || draggedTeacherId === targetId) return;
+      const rect = li.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      reorderTeacher(draggedTeacherId, targetId, before);
+    });
+  });
+}
+
+function reorderTeacher(draggedId, targetId, before) {
+  const fromIdx = state.teachers.findIndex(t => t.id === draggedId);
+  if (fromIdx === -1) return;
+  const [moved] = state.teachers.splice(fromIdx, 1);
+  let toIdx = state.teachers.findIndex(t => t.id === targetId);
+  if (toIdx === -1) toIdx = state.teachers.length;
+  else if (!before) toIdx += 1;
+  state.teachers.splice(toIdx, 0, moved);
+  saveState(); render();
+  toast(`${moved.name} 선생님 순서를 변경했습니다.`);
 }
 
 function toggleTeacherDetail(tid) { const el = document.getElementById("tdetail-" + tid); if (el) el.classList.toggle("open"); }
@@ -120,31 +182,50 @@ function deleteTeacher(tid) {
   saveState(); saveAttendance(); render(); toast(`${t.name} 선생님을 삭제했습니다.`);
 }
 
-/* ===== 선생님 명단 인쇄 ===== */
+/* ===== 선생님 명단 인쇄 (반별명단 인쇄와 동일하게 인쇄 항목을 선택할 수 있습니다) ===== */
 
-function buildPrintAreaTeachers() {
+function openTeacherPrintOpt() { document.getElementById("teacherPrintOptBackdrop").classList.add("open"); }
+function closeTeacherPrintOpt() { document.getElementById("teacherPrintOptBackdrop").classList.remove("open"); }
+
+function buildPrintAreaTeachers(opts) {
+  if (!opts) opts = { dob: true, phone: true, address: false, gender: false, note: false };
   const container = document.getElementById("printAreaTeachers");
   if (!container) return;
-  const rows = state.teachers.map(t => `
-    <tr>
-      <td>${escapeHtml(t.name) || "-"}</td>
-      <td>${escapeHtml(formatTeacherDob(t)) || "-"}</td>
-      <td>${escapeHtml(t.gender) || "-"}</td>
-      <td>${escapeHtml(t.phone) || "-"}</td>
-      <td>${escapeHtml(t.address) || "-"}</td>
-      <td>${escapeHtml(t.note) || "-"}</td>
-    </tr>`).join("");
+  const cols = [{ label: "이름", key: "name" }];
+  if (opts.dob) cols.push({ label: "생일", key: "_dob" });
+  if (opts.phone) cols.push({ label: "전화번호", key: "phone" });
+  if (opts.address) cols.push({ label: "주소", key: "address" });
+  if (opts.gender) cols.push({ label: "성별", key: "gender" });
+  if (opts.note) cols.push({ label: "비고", key: "note" });
+
+  const ths = cols.map(c => `<th>${c.label}</th>`).join("");
+  const rows = state.teachers.map(t => {
+    const tds = cols.map(c => {
+      const v = c.key === "_dob" ? formatTeacherDob(t) : t[c.key];
+      return `<td>${escapeHtml(v) || "-"}</td>`;
+    }).join("");
+    return `<tr>${tds}</tr>`;
+  }).join("");
+
   container.innerHTML = `<div class="print-page"><div class="print-header">
     <div class="p-title">${escapeHtml(state.title)} · 선생님 명단 (${state.teachers.length}명)</div>
     <div class="p-date">기준일: ${escapeHtml(state.updated)}</div></div>
     <table class="print-table">
-      <tr><th>이름</th><th>생일</th><th>성별</th><th>전화번호</th><th>주소</th><th>비고</th></tr>
-      ${rows || `<tr><td colspan="6" style="text-align:center;color:#666;">등록된 선생님이 없습니다.</td></tr>`}
+      <tr>${ths}</tr>
+      ${rows || `<tr><td colspan="${cols.length}" style="text-align:center;color:#666;">등록된 선생님이 없습니다.</td></tr>`}
     </table></div>`;
 }
 
 function doPrintTeachers() {
-  buildPrintAreaTeachers();
+  const opts = {
+    dob: document.getElementById("tpDob").checked,
+    phone: document.getElementById("tpPhone").checked,
+    address: document.getElementById("tpAddress").checked,
+    gender: document.getElementById("tpGender").checked,
+    note: document.getElementById("tpNote").checked
+  };
+  buildPrintAreaTeachers(opts);
+  closeTeacherPrintOpt();
   document.body.classList.add("print-teachers");
   setTimeout(() => window.print(), 100);
 }

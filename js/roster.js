@@ -56,10 +56,15 @@ function classCardHtml(cls, extraClass) {
   const membersHtml = cls.members.length
     ? `<ul class="member-list">${cls.members.map(m => memberRowHtml(cls, m)).join("")}</ul>`
     : `<div class="empty-note">등록된 인원이 없습니다.</div>`;
+  const classActions = cls.kind === "regular" ? `
+    <div class="class-head-actions">
+      <button class="btn-mini btn-ghost" onclick="openClassModal('${cls.id}')" title="반 정보 수정">✏️</button>
+      <button class="btn-mini btn-ghost" onclick="deleteClass('${cls.id}')" title="반 삭제">🗑</button>
+    </div>` : "";
   return `
   <div class="class-card ${extraClass || ""}" data-cid="${cls.id}">
     <div class="class-card-head"><div><div class="title">${escapeHtml(cls.name)}</div><div class="teachers">${escapeHtml(teacherStr)}</div></div>
-    <div class="count-badge">${cls.members.length}명</div></div>
+    <div class="card-head-right"><div class="count-badge">${cls.members.length}명</div>${classActions}</div></div>
     ${membersHtml}
     <div class="add-row"><button class="btn-ghost btn-mini" onclick="openAddModal('${cls.id}')">+ 이 반에 사람 추가</button></div>
   </div>`;
@@ -246,16 +251,30 @@ function openRestoreFlow(mid) {
   saveState(); render(); toast(`${m.name} 님을 ${regularClasses[idx].name}(으)로 복귀했습니다.`);
 }
 
-/* ===== 반 추가 ===== */
+/* ===== 반 추가 / 수정 / 삭제 ===== */
 
-function openClassModal() {
+let editingClassId = null;
+
+function openClassModal(classId) {
   populateAgeDatalist();
-  ["cAge", "cName", "cTeachers"].forEach(id => document.getElementById(id).value = "");
+  if (classId) {
+    const cls = findClass(classId);
+    if (!cls || cls.kind !== "regular") return;
+    editingClassId = classId;
+    document.getElementById("classModalTitle").textContent = "반 정보 수정";
+    document.getElementById("cAge").value = cls.age || "";
+    document.getElementById("cName").value = cls.name || "";
+    document.getElementById("cTeachers").value = (cls.teachers || []).join(", ");
+  } else {
+    editingClassId = null;
+    document.getElementById("classModalTitle").textContent = "반 추가";
+    ["cAge", "cName", "cTeachers"].forEach(id => document.getElementById(id).value = "");
+  }
   document.getElementById("classModalBackdrop").classList.add("open");
   document.getElementById("cAge").focus();
 }
 
-function closeClassModal() { document.getElementById("classModalBackdrop").classList.remove("open"); }
+function closeClassModal() { document.getElementById("classModalBackdrop").classList.remove("open"); editingClassId = null; }
 
 function saveClassModal() {
   const age = document.getElementById("cAge").value.trim();
@@ -264,12 +283,33 @@ function saveClassModal() {
   if (!age) { alert("학년/연령을 입력해주세요. (예: 5세)"); return; }
   if (!name) { alert("반 이름을 입력해주세요."); return; }
 
-  const dup = state.classes.some(c => c.kind === "regular" && c.age === age && c.name === name);
+  const dup = state.classes.some(c => c.kind === "regular" && c.age === age && c.name === name && c.id !== editingClassId);
   if (dup) { alert(`'${age} ${name}' 반은 이미 있습니다. 다른 이름을 입력해주세요.`); return; }
 
   const teachers = teachersRaw ? teachersRaw.split(",").map(s => s.trim()).filter(Boolean) : [];
 
-  state.classes.push({ id: genClassId(), kind: "regular", age, pastor: "", name, teachers, members: [] });
-  saveState(); render(); closeClassModal();
-  toast(`'${age} ${name}' 반을 추가했습니다.`);
+  if (editingClassId) {
+    const cls = findClass(editingClassId);
+    if (!cls) { closeClassModal(); return; }
+    cls.age = age; cls.name = name; cls.teachers = teachers;
+    saveState(); render(); closeClassModal();
+    toast(`'${age} ${name}' 반 정보를 수정했습니다.`);
+  } else {
+    state.classes.push({ id: genClassId(), kind: "regular", age, pastor: "", name, teachers, members: [] });
+    saveState(); render(); closeClassModal();
+    toast(`'${age} ${name}' 반을 추가했습니다.`);
+  }
+}
+
+function deleteClass(classId) {
+  const cls = findClass(classId);
+  if (!cls || cls.kind !== "regular") return;
+  const memberCount = cls.members.length;
+  const msg = memberCount > 0
+    ? `'${cls.age} ${cls.name}' 반을 삭제할까요?\n\n⚠ 이 반에 소속된 ${memberCount}명의 정보도 함께 삭제됩니다.`
+    : `'${cls.age} ${cls.name}' 반을 삭제할까요?`;
+  if (!confirm(msg)) return;
+  state.classes = state.classes.filter(c => c.id !== classId);
+  saveState(); render();
+  toast(`'${cls.age} ${cls.name}' 반을 삭제했습니다.`);
 }
