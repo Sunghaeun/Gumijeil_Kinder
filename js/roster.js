@@ -36,7 +36,7 @@ function memberRowHtml(cls, m) {
     </div>
     <div class="member-actions">
       ${cls.kind === "alt"
-        ? `<button class="btn-mini btn-green" onclick="openRestoreFlow('${m.id}')">반 복귀</button>`
+        ? `<button class="btn-mini btn-ghost" onclick="openRestoreFlow('${m.id}')">🔀</button>`
         : `<button class="btn-mini btn-ghost" onclick="moveToAlt('${m.id}')" title="별명부로 이동">🔀</button>`}
       <button class="btn-mini btn-ghost" onclick="openEditModal('${m.id}')">수정</button>
       <button class="btn-mini btn-ghost" onclick="deleteMember('${m.id}')">삭제</button>

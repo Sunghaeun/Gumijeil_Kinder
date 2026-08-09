@@ -60,7 +60,9 @@ function calNextMonth() { attState.calMonth = calShiftMonth(attState.calMonth, 1
 
 function calToggleDate(dateStr) {
   const existing = attState.weeks.find(w => w.label === dateStr);
-  if (existing) { if (confirm(`${dateStr} 주차를 삭제할까요?`)) removeWeek(existing.id); return; }
+  /* [수정3-1] removeWeek() 안에서 이미 삭제 확인을 한 번 물어보므로, 여기서 또 물어보면
+     확인창이 2번 뜹니다. 여기서는 그냥 removeWeek()를 호출하고 확인은 그쪽에 맡깁니다. */
+  if (existing) { removeWeek(existing.id); return; }
   if (!confirm(`${dateStr}을(를) 출석 주차로 추가할까요?`)) return;
   ensureWeekForDate(dateStr); saveAttendance(); renderAttendance(); toast(`${dateStr} 주차를 추가했습니다.`);
 }
@@ -352,7 +354,7 @@ function openCalPrintOpt() {
 }
 function closeCalPrintOpt() { document.getElementById("calPrintOptBackdrop").classList.remove("open"); }
 
-function buildPrintAreaCal(ym, showBday, showAtt) {
+function buildPrintAreaCal(ym, showBday, showAtt, showNote) {
   const container = document.getElementById("printAreaCal");
   const [y, mo] = ym.split("-").map(Number);
   const startWeekday = new Date(y, mo - 1, 1).getDay();
@@ -383,6 +385,9 @@ function buildPrintAreaCal(ym, showBday, showAtt) {
       const sC = weekStudentCount(weekId), tC = weekTeacherCount(weekId);
       inner += `<div class="cp-att">학생 ${sC}명 · 교사 ${tC}명</div>`;
     }
+    if (showNote && attState.dateNotes && attState.dateNotes[dateStr]) {
+      inner += `<div class="cp-note">${attState.dateNotes[dateStr]}</div>`;
+    }
     cells += `<div class="cp-cell ${isSun ? "cp-sun" : ""}"><div class="cp-daynum">${d}</div>${inner}</div>`;
   }
   const usedCells = startWeekday + daysInMonth;
@@ -400,7 +405,8 @@ function doPrintCalendar() {
   const ym = document.getElementById("calPrintMonth").value || attState.calMonth;
   const showBday = document.getElementById("calPrintBday").checked;
   const showAtt = document.getElementById("calPrintAtt").checked;
-  buildPrintAreaCal(ym, showBday, showAtt);
+  const showNote = document.getElementById("calPrintNote").checked;
+  buildPrintAreaCal(ym, showBday, showAtt, showNote);
   closeCalPrintOpt();
   document.body.classList.add("print-cal");
   setTimeout(() => window.print(), 100);

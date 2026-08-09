@@ -149,6 +149,25 @@ function uncheckTeachers(weekId) {
   saveAttendance(); renderAttendance(); toast("교사 전원 출석 해제 완료");
 }
 
+/* [수정3-3] 전원✓ / 전원✗ 버튼 2개를 하나의 on/off 토글 버튼으로 통합 */
+function weekClassAllChecked(cls, weekId) {
+  if (!cls.members.length) return false;
+  return cls.members.every(m => !!(attState.records[m.id] || {})[weekId]);
+}
+function toggleBulkClass(classId, weekId) {
+  const cls = findClass(classId); if (!cls) return;
+  if (weekClassAllChecked(cls, weekId)) uncheckClass(classId, weekId);
+  else bulkCheckClass(classId, weekId);
+}
+function weekTeachersAllChecked(weekId) {
+  if (!state.teachers.length) return false;
+  return state.teachers.every(t => !!(attState.teacherRecords[t.id] || {})[weekId]);
+}
+function toggleBulkTeachers(weekId) {
+  if (weekTeachersAllChecked(weekId)) uncheckTeachers(weekId);
+  else bulkCheckTeachers(weekId);
+}
+
 /* 합계 계산 */
 function attendanceClasses() { return state.classes.filter(c => c.kind === "regular" || c.kind === "new" || c.kind === "alt"); }
 function studentDenominator() { return totalRegular() + findClass("c_alt").members.length; }
@@ -177,10 +196,12 @@ function weekClassCount(cls, weekId) {
 function attClassTableHtml(cls, weeks) {
   weeks = weeks || attState.weeks;
   if (!cls.members.length) return `<div class="att-class-block"><h3>${escapeHtml(cls.name)}</h3><div class="att-empty">인원 없음</div></div>`;
-  const weekHeaders = weeks.map(w => `
+  const weekHeaders = weeks.map(w => {
+    const allChecked = weekClassAllChecked(cls, w.id);
+    return `
     <th class="att-week">${escapeHtml(w.label)}<button class="week-del" title="이 주 삭제" onclick="removeWeek('${w.id}')">×</button>
-    <br><button class="bulk-btn" onclick="bulkCheckClass('${cls.id}','${w.id}')">전원✓</button>
-    <button class="bulk-btn" style="background:var(--danger);" onclick="uncheckClass('${cls.id}','${w.id}')">전원✗</button></th>`).join("");
+    <br><button class="bulk-btn ${allChecked ? "bulk-btn-on" : ""}" onclick="toggleBulkClass('${cls.id}','${w.id}')">${allChecked ? "전원 해제" : "전원 출석"}</button></th>`;
+  }).join("");
 
   const rows = cls.members.map(m => {
     const rec = attState.records[m.id] || {};
@@ -205,10 +226,12 @@ function attClassTableHtml(cls, weeks) {
 function teacherTableHtml(weeks) {
   weeks = weeks || attState.weeks;
   if (!state.teachers.length) return `<div class="att-class-block"><h3>교사</h3><div class="att-empty">교사 없음</div></div>`;
-  const weekHeaders = weeks.map(w => `
+  const weekHeaders = weeks.map(w => {
+    const allChecked = weekTeachersAllChecked(w.id);
+    return `
     <th class="att-week">${escapeHtml(w.label)}<button class="week-del" title="삭제" onclick="removeWeek('${w.id}')">×</button>
-    <br><button class="bulk-btn" onclick="bulkCheckTeachers('${w.id}')">전원✓</button>
-    <button class="bulk-btn" style="background:var(--danger);" onclick="uncheckTeachers('${w.id}')">전원✗</button></th>`).join("");
+    <br><button class="bulk-btn ${allChecked ? "bulk-btn-on" : ""}" onclick="toggleBulkTeachers('${w.id}')">${allChecked ? "전원 해제" : "전원 출석"}</button></th>`;
+  }).join("");
 
   const rows = state.teachers.map(t => {
     const rec = attState.teacherRecords[t.id] || {};
@@ -307,6 +330,92 @@ function printSummaryCompact(weeks) {
     <table class="print-table" style="font-size:8px;"><tr><th>주차</th><th>학생</th><th>교사</th></tr>${rows}</table></div>`;
 }
 
+/* [수정3-2] 주차를 1개만 선택했을 때: 사진 속 종이 출석체크표처럼 나이별 4칼럼(3개 연령 + 교사)
+   레이아웃으로 한 장(A4)에 인쇄합니다. 별명부 인원은 원래 소속됐던 반의 나이 칼럼 맨 아래에
+   포함되고, 신입반 인원은 교사 칼럼 아래쪽에 별도 블록으로 모아서 보여줍니다. */
+function ageColumnCountLabel(age) { return escapeHtml(age); }
+
+function formatKoreanDate(dateStr) {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월${d.getDate()}일`;
+}
+
+function singleWeekAgeColumnHtml(age, weekId) {
+  const classesOfAge = state.classes.filter(c => c.kind === "regular" && c.age === age);
+  const altMembers = findClass("c_alt").members.filter(m => {
+    const origin = m._fromClass ? findClass(m._fromClass) : null;
+    return origin && origin.age === age;
+  });
+  let rows = "";
+  let total = 0;
+  classesOfAge.forEach(c => {
+    total += c.members.length;
+    if (!c.members.length) return;
+    rows += c.members.map((m, i) => {
+      const checked = !!(attState.records[m.id] || {})[weekId];
+      const clsCell = i === 0 ? `<td class="sw-clsname" rowspan="${c.members.length}">${escapeHtml(c.name)}(${c.members.length})</td>` : "";
+      return `<tr>${clsCell}<td class="sw-name">${escapeHtml(m.name)}</td><td class="sw-check">${checked ? "○" : ""}</td></tr>`;
+    }).join("");
+  });
+  if (altMembers.length) {
+    total += altMembers.length;
+    rows += altMembers.map((m, i) => {
+      const checked = !!(attState.records[m.id] || {})[weekId];
+      const clsCell = i === 0 ? `<td class="sw-clsname" rowspan="${altMembers.length}">별명(${altMembers.length})</td>` : "";
+      return `<tr>${clsCell}<td class="sw-name">${escapeHtml(m.name)}</td><td class="sw-check">${checked ? "○" : ""}</td></tr>`;
+    }).join("");
+  }
+  return `<div class="sw-col">
+    <table class="sw-table">
+      <tr><th>${ageColumnCountLabel(age)}</th><th>이름</th><th>확인</th></tr>
+      ${rows}
+    </table>
+    <div class="sw-colfoot">총 ${escapeHtml(age)} ${total}명</div>
+  </div>`;
+}
+
+function singleWeekTeacherColumnHtml(weekId) {
+  const newCls = findClass("c_new");
+  const rows = state.teachers.map((t, i) => {
+    const checked = !!(attState.teacherRecords[t.id] || {})[weekId];
+    return `<tr><td class="sw-num">${i + 1}</td><td class="sw-name">${escapeHtml(t.name)}</td><td class="sw-check">${checked ? "○" : ""}</td></tr>`;
+  }).join("");
+  let newRows = "";
+  if (newCls && newCls.members.length) {
+    newRows = `<tr><td colspan="3" class="sw-subhead">신입 (${newCls.members.length})</td></tr>` +
+      newCls.members.map(m => {
+        const checked = !!(attState.records[m.id] || {})[weekId];
+        return `<tr><td></td><td class="sw-name">${escapeHtml(m.name)}</td><td class="sw-check">${checked ? "○" : ""}</td></tr>`;
+      }).join("");
+  }
+  return `<div class="sw-col">
+    <table class="sw-table">
+      <tr><th>번호</th><th>교사</th><th>확인</th></tr>
+      ${rows}
+      ${newRows}
+    </table>
+    <div class="sw-colfoot">총 교사 ${state.teachers.length}명</div>
+  </div>`;
+}
+
+function buildSingleWeekAttSheet(week) {
+  const container = document.getElementById("printAreaAtt");
+  const ages = [...new Set(state.classes.filter(c => c.kind === "regular").map(c => c.age))];
+  const cols = ages.map(age => singleWeekAgeColumnHtml(age, week.id)).join("") + singleWeekTeacherColumnHtml(week.id);
+  const sC = weekStudentCount(week.id), tC = weekTeacherCount(week.id);
+  const sDenom = studentDenominator(), tDenom = teacherDenominator();
+
+  container.innerHTML = `<div class="print-page single-week-page">
+    <div class="print-header"><div class="p-title">${escapeHtml(state.title)} 출석체크표</div>
+    <div class="p-date">${formatKoreanDate(week.label)}</div></div>
+    <div class="single-week-grid">${cols}</div>
+    <table class="sw-summary-table">
+      <tr><th>학생</th><td>${sC} / ${sDenom}명</td><th>교사</th><td>${tC} / ${tDenom}명</td><th>부모</th><td class="sw-blank"></td><th>합계</th><td class="sw-blank"></td></tr>
+    </table>
+  </div>`;
+}
+
 function buildPrintAreaAtt(selectedWeekIds) {
   const container = document.getElementById("printAreaAtt");
   const weeks = selectedWeekIds ? attState.weeks.filter(w => selectedWeekIds.includes(w.id)) : attState.weeks;
@@ -315,6 +424,7 @@ function buildPrintAreaAtt(selectedWeekIds) {
       <p style="font-size:13px;">선택된 주차가 없습니다.</p></div>`;
     return;
   }
+  if (weeks.length === 1) { buildSingleWeekAttSheet(weeks[0]); return; }
   let body = "";
   body += printSummaryCompact(weeks);
   body += printTeacherTableCompact(weeks);
@@ -333,50 +443,36 @@ function buildPrintAreaAtt(selectedWeekIds) {
     ${body}</div>`;
 }
 
-/* ===== 출석부 인쇄 주차 선택 모달 ===== */
+/* ===== [수정1/3] 출석부 인쇄 주차 선택 모달 - 월을 먼저 고르고, 그 달의 주차만 체크박스로 표시 ===== */
 
 function openAttPrintOpt() {
   if (!attState.weeks.length) { alert("등록된 주차가 없습니다. 먼저 캘린더나 '+ 새 주 추가'로 주차를 추가해주세요."); return; }
-  const groups = {}; // "YYYY-MM" -> [week,...] ; 파싱 안되면 "기타"
-  attState.weeks.forEach(w => {
-    const d = new Date(w.label);
-    const key = !isNaN(d.getTime()) ? w.label.slice(0, 7) : "기타";
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(w);
-  });
-  const keys = Object.keys(groups).sort();
-  const html = keys.map(key => {
-    const items = groups[key].map(w => `
+  document.getElementById("attPrintMonth").value = attState.calMonth;
+  renderAttPrintWeekList(attState.calMonth);
+  document.getElementById("attPrintOptBackdrop").classList.add("open");
+}
+
+function renderAttPrintWeekList(ym) {
+  const weeks = weeksInMonth(ym);
+  const html = weeks.length
+    ? weeks.map(w => `
       <div class="att-print-week-item">
         <input type="checkbox" class="attp-week-cb" value="${w.id}" checked>
         <label>${escapeHtml(w.label)}</label>
-      </div>`).join("");
-    const monthLabel = key === "기타" ? "기타" : `${key.split("-")[0]}년 ${parseInt(key.split("-")[1],10)}월`;
-    return `<div class="att-print-month-group">
-      <div class="month-title">${monthLabel}
-        <button class="btn-ghost btn-mini" onclick="attPrintSelectMonth('${key}',true)">이 달 전체</button>
-        <button class="btn-ghost btn-mini" onclick="attPrintSelectMonth('${key}',false)">이 달 해제</button>
-      </div>
-      ${items}
-    </div>`;
-  }).join("");
+      </div>`).join("")
+    : `<div class="att-empty">이 달에 등록된 출석 주차가 없습니다.</div>`;
   document.getElementById("attPrintWeekList").innerHTML = html;
-  document.getElementById("attPrintWeekList").dataset.groups = JSON.stringify(
-    Object.fromEntries(keys.map(k => [k, groups[k].map(w => w.id)]))
-  );
-  document.getElementById("attPrintOptBackdrop").classList.add("open");
+}
+
+function attPrintMonthChanged() {
+  const ym = document.getElementById("attPrintMonth").value;
+  if (ym) renderAttPrintWeekList(ym);
 }
 
 function closeAttPrintOpt() { document.getElementById("attPrintOptBackdrop").classList.remove("open"); }
 
 function attPrintSelectAll(checked) {
   document.querySelectorAll(".attp-week-cb").forEach(cb => { cb.checked = checked; });
-}
-
-function attPrintSelectMonth(monthKey, checked) {
-  const groups = JSON.parse(document.getElementById("attPrintWeekList").dataset.groups || "{}");
-  const ids = new Set(groups[monthKey] || []);
-  document.querySelectorAll(".attp-week-cb").forEach(cb => { if (ids.has(cb.value)) cb.checked = checked; });
 }
 
 function doPrintAttendance() {

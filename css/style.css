@@ -95,6 +95,8 @@ table.summary-table td,table.summary-table th{text-align:center;}
 table.summary-table td.att-name{text-align:left;}
 .bulk-btn{background:var(--green);color:#fff;font-size:9px;padding:2px 5px;border-radius:4px;cursor:pointer;border:none;margin-top:2px;}
 .bulk-btn:hover{background:var(--green-dark);}
+.bulk-btn.bulk-btn-on{background:var(--danger);}
+.bulk-btn.bulk-btn-on:hover{background:var(--danger-dark);}
 
 /* 캘린더 */
 .cal-block h3{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
@@ -161,6 +163,26 @@ table.att-print-table td.p-att-total,table.att-print-table th:last-child{font-we
 .cp-sun .cp-daynum{color:#b0587e;}
 .cp-bday{font-size:7.5px;color:#7a4a10;line-height:1.25;margin-top:1px;}
 .cp-att{font-size:7.5px;color:#1f3a5f;line-height:1.25;margin-top:2px;font-weight:600;}
+.cp-note{font-size:6.5px;color:#333;line-height:1.2;margin-top:2px;overflow:hidden;max-height:22px;}
+.cp-note img{max-width:100%;}
+
+/* [수정3-2] 주차 1개만 인쇄할 때: 나이별 4칼럼(연령×3 + 교사) 출석체크표 */
+.single-week-page{padding:0;}
+.single-week-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;align-items:start;}
+.sw-col{border:1px solid #333;}
+table.sw-table{border-collapse:collapse;width:100%;font-size:7.5px;table-layout:fixed;}
+table.sw-table th,table.sw-table td{border:1px solid #999;padding:1.5px 2px;text-align:left;overflow:hidden;}
+table.sw-table th{background:#eee;font-size:7.5px;text-align:center;}
+.sw-clsname{width:20px;text-align:center;font-weight:700;white-space:normal;word-break:keep-all;vertical-align:middle;}
+.sw-name{white-space:normal;word-break:keep-all;}
+.sw-check{text-align:center;width:16px;}
+.sw-num{text-align:center;width:14px;color:#666;}
+.sw-subhead{background:#f3f3f3;font-weight:700;text-align:center;}
+.sw-colfoot{font-size:7.5px;font-weight:700;text-align:center;padding:2px 0;border-top:1px solid #333;}
+table.sw-summary-table{border-collapse:collapse;width:100%;font-size:9.5px;margin-top:8px;}
+table.sw-summary-table th,table.sw-summary-table td{border:1px solid #999;padding:4px 8px;text-align:center;}
+table.sw-summary-table th{background:#eee;}
+.sw-blank{min-width:50px;}
 
 /* 캘린더 메모 */
 .cal-note-inner{border-top:1px solid var(--line);margin-top:6px;}

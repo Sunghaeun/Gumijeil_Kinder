@@ -126,7 +126,8 @@
 <div class="modal-backdrop" id="attPrintOptBackdrop">
   <div class="modal" style="max-width:480px;">
     <h3>🖨 출석부 인쇄 - 주차 선택</h3>
-    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">인쇄할 주차를 선택하세요. (월별로 묶여 표시됩니다)</p>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">인쇄할 월을 먼저 선택하면, 그 달의 주차만 아래에 표시됩니다.</p>
+    <div class="field"><label>인쇄할 월</label><input type="month" id="attPrintMonth" onchange="attPrintMonthChanged()"></div>
     <div style="display:flex;gap:8px;margin-bottom:10px;">
       <button class="btn-ghost btn-mini" onclick="attPrintSelectAll(true)">전체 선택</button>
       <button class="btn-ghost btn-mini" onclick="attPrintSelectAll(false)">전체 해제</button>
@@ -197,6 +198,7 @@
       <div class="print-opt" style="margin-top:6px;margin-bottom:0;">
         <label><input type="checkbox" id="calPrintBday" checked> 생일</label>
         <label><input type="checkbox" id="calPrintAtt" checked> 출석</label>
+        <label><input type="checkbox" id="calPrintNote" checked> 메모</label>
       </div>
     </div>
     <div class="modal-actions">
