@@ -898,6 +898,16 @@ async function loadMeta() {
     try { await apiPut(rosterKeyForYear(currentYear), legacy); }
     catch (e) { console.error("예전 데이터를 연도별 데이터로 옮기지 못했습니다.", e); }
   }
+
+  // 출석부도 예전에는 "attendance" 하나뿐이었으므로, 같은 방식으로 올해 데이터로 옮깁니다.
+  // (사람 id가 연도마다 새로 매겨지기 때문에 출석부도 반드시 연도별로 나눠야 서로 안 섞입니다.)
+  let legacyAtt = null;
+  try { legacyAtt = await apiGet("attendance"); } catch (e) { console.error(e); }
+  if (legacyAtt) {
+    try { await apiPut(attendanceKeyForYear(currentYear), legacyAtt); }
+    catch (e) { console.error("예전 출석부를 연도별 데이터로 옮기지 못했습니다.", e); }
+  }
+
   try { await apiPut("roster_meta", newMeta); } catch (e) { console.error(e); }
   return newMeta;
 }
@@ -925,12 +935,14 @@ function saveState() {
   apiPut(rosterKeyForYear(viewYear), state).catch(() => toast("⚠ 저장 실패 - 인터넷 연결을 확인하세요."));
 }
 
-/* 연도 선택 드롭다운에서 다른 연도를 선택했을 때 호출합니다. */
+/* 연도 선택 드롭다운에서 다른 연도를 선택했을 때 호출합니다. 반별명단뿐 아니라 출석부도
+   그 연도 것으로 함께 바꿔줍니다(안 그러면 이전 연도 출석 체크가 남아서 뒤섞여 보입니다). */
 async function switchYear(year) {
   year = parseInt(year, 10);
   if (isNaN(year) || year === viewYear) return;
   viewYear = year;
   state = await loadState(year);
+  attState = await loadAttendance(year);
   render();
   renderYearSelector();
 }
@@ -944,6 +956,7 @@ async function purgeOldYears() {
   if (!purge.length) return;
   for (const y of purge) {
     try { await apiDelete(rosterKeyForYear(y)); } catch (e) { console.error("연도 자료 파기 실패", y, e); }
+    try { await apiDelete(attendanceKeyForYear(y)); } catch (e) { console.error("연도 출석부 파기 실패", y, e); }
   }
   metaState.years = keep;
   try { await apiPut("roster_meta", metaState); } catch (e) { console.error(e); }

@@ -343,6 +343,7 @@ async function applyRosterUpload() {
 
     viewYear = year;
     state = await loadState(year);
+    attState = await loadAttendance(year);
     render();
   } catch (e) {
     console.error(e);

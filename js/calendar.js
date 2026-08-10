@@ -55,10 +55,13 @@ function calShiftMonth(ym, delta) {
   if (mo < 1) { mo = 12; y--; } if (mo > 12) { mo = 1; y++; }
   return `${y}-${String(mo).padStart(2, "0")}`;
 }
-function calPrevMonth() { attState.calMonth = calShiftMonth(attState.calMonth, -1); saveAttendance(); renderAttendance(); }
-function calNextMonth() { attState.calMonth = calShiftMonth(attState.calMonth, 1); saveAttendance(); renderAttendance(); }
+/* 달력에서 이전달/다음달로 넘기는 건 그냥 "보기"일 뿐이라, 지난 연도를 보는 중이어도
+   막지 않습니다(저장은 현재 연도일 때만 하고, 지난 연도는 화면에서만 이동합니다). */
+function calPrevMonth() { attState.calMonth = calShiftMonth(attState.calMonth, -1); if (isViewingCurrentYear()) saveAttendance(); renderAttendance(); }
+function calNextMonth() { attState.calMonth = calShiftMonth(attState.calMonth, 1); if (isViewingCurrentYear()) saveAttendance(); renderAttendance(); }
 
 function calToggleDate(dateStr) {
+  if (!guardEditable()) return;
   const existing = attState.weeks.find(w => w.label === dateStr);
   /* [수정3-1] removeWeek() 안에서 이미 삭제 확인을 한 번 물어보므로, 여기서 또 물어보면
      확인창이 2번 뜹니다. 여기서는 그냥 removeWeek()를 호출하고 확인은 그쪽에 맡깁니다. */
@@ -215,6 +218,7 @@ function calNoteHtml() {
 }
 
 function deleteDateNote(dateStr) {
+  if (!guardEditable()) return;
   if (!confirm(`${dateStr} 메모를 삭제할까요?`)) return;
   if (attState.dateNotes) delete attState.dateNotes[dateStr];
   saveAttendance();
@@ -263,6 +267,7 @@ function cancelEditFreeNote() {
 }
 
 function deleteFreeNote(id) {
+  if (!guardEditable()) return;
   if (!confirm("이 메모를 삭제할까요?")) return;
   attState.freeNotes = (attState.freeNotes || []).filter(x => x.id !== id);
   if (editingFreeNoteId === id) editingFreeNoteId = null;
@@ -317,6 +322,7 @@ function calNoteInsertImage(e) {
 }
 
 function calNoteSaveClick() {
+  if (!guardEditable()) return;
   const html = document.getElementById("calNoteEditor").innerHTML;
   if (calNoteTarget === "free") {
     const now = new Date().toISOString();

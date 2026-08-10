@@ -3,17 +3,28 @@
    출석부 (학생/교사 출석 + 캘린더 + 생일 + 일괄 출석)
    ============================================================ */
 
-/* attState는 main.js의 초기화(init) 단계에서 서버로부터 비동기로 불러온 뒤 채워집니다. */
+/* attState는 main.js의 초기화(init) 단계, 또는 연도를 전환할 때 서버로부터 비동기로
+   불러온 뒤 채워집니다. 반별명단과 마찬가지로 "attendance_2026"처럼 연도별 키로 저장합니다
+   - 사람(member) id가 연도마다 새로 매겨지기 때문에(같은 id "m1"이라도 연도마다 다른
+   아이를 가리킬 수 있음), 출석부를 연도별로 나누지 않으면 다른 연도끼리 출석 체크가
+   서로 뒤섞여 보이는 문제가 생깁니다. */
 let attState = null;
 
-function defaultAttendanceState() {
-  return { weeks: [], records: {}, teacherRecords: {}, calMonth: new Date().toISOString().slice(0, 7), dateNotes: {}, freeNotes: [], autoInitedMonths: [] };
+function attendanceKeyForYear(year) { return `attendance_${year}`; }
+
+function defaultAttendanceState(year) {
+  const now = new Date();
+  const realCurrentYear = now.getFullYear();
+  const calMonth = (year === undefined || year === realCurrentYear)
+    ? now.toISOString().slice(0, 7)
+    : `${year}-01`;
+  return { weeks: [], records: {}, teacherRecords: {}, calMonth, dateNotes: {}, freeNotes: [], autoInitedMonths: [] };
 }
 
-/* [변경] localStorage 대신 서버(API)에서 불러옵니다. */
-async function loadAttendance() {
+/* [변경] localStorage 대신 서버(API)에서, 연도별 키로 불러옵니다. */
+async function loadAttendance(year) {
   try {
-    const p = await apiGet("attendance");
+    const p = await apiGet(attendanceKeyForYear(year));
     if (p && Array.isArray(p.weeks) && p.records) {
       if (!p.teacherRecords) p.teacherRecords = {};
       if (!p.calMonth) p.calMonth = new Date().toISOString().slice(0, 7);
@@ -31,13 +42,18 @@ async function loadAttendance() {
   } catch (e) {
     console.error("출석부 불러오기 실패, 빈 데이터로 시작합니다.", e);
   }
-  return defaultAttendanceState();
+  return defaultAttendanceState(year);
 }
 
-/* [변경] localStorage 대신 서버(API)로 저장합니다. */
+/* [변경] localStorage 대신 서버(API)로, 연도별 키에 저장합니다. 지난 연도를 보는 중이면
+   반별명단과 마찬가지로 저장하지 않습니다(출석부도 그 연도의 명단에 딸린 자료이므로). */
 function saveAttendance() {
   if (!attState) return;
-  apiPut("attendance", attState).catch(() => toast("⚠ 저장 실패 - 인터넷 연결을 확인하세요."));
+  if (!isViewingCurrentYear()) {
+    toast("⚠ 지난 연도 출석부는 수정할 수 없습니다.");
+    return;
+  }
+  apiPut(attendanceKeyForYear(viewYear), attState).catch(() => toast("⚠ 저장 실패 - 인터넷 연결을 확인하세요."));
 }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
@@ -83,6 +99,7 @@ function ensureMonthSundaysInited(ym) {
 }
 
 function addWeek() {
+  if (!guardEditable()) return;
   const suggested = suggestNextWeekLabel();
   const label = prompt("추가할 주의 날짜를 입력하세요 (예: 2026-01-04)", suggested);
   if (label === null) return;
@@ -92,6 +109,7 @@ function addWeek() {
 }
 
 function removeWeek(weekId) {
+  if (!guardEditable()) return;
   const wk = attState.weeks.find(w => w.id === weekId); if (!wk) return;
   if (!confirm(`'${wk.label}' 주차를 삭제할까요?`)) return;
   attState.weeks = attState.weeks.filter(w => w.id !== weekId);
@@ -101,12 +119,14 @@ function removeWeek(weekId) {
 }
 
 function toggleAttendance(memberId, weekId, checked) {
+  if (!guardEditable()) return;
   if (!attState.records[memberId]) attState.records[memberId] = {};
   attState.records[memberId][weekId] = checked;
   saveAttendance(); renderAttendance();
 }
 
 function toggleTeacherAttendance(teacherId, weekId, checked) {
+  if (!guardEditable()) return;
   if (!attState.teacherRecords[teacherId]) attState.teacherRecords[teacherId] = {};
   attState.teacherRecords[teacherId][weekId] = checked;
   saveAttendance(); renderAttendance();
@@ -155,6 +175,7 @@ function weekClassAllChecked(cls, weekId) {
   return cls.members.every(m => !!(attState.records[m.id] || {})[weekId]);
 }
 function toggleBulkClass(classId, weekId) {
+  if (!guardEditable()) return;
   const cls = findClass(classId); if (!cls) return;
   if (weekClassAllChecked(cls, weekId)) uncheckClass(classId, weekId);
   else bulkCheckClass(classId, weekId);
@@ -164,6 +185,7 @@ function weekTeachersAllChecked(weekId) {
   return state.teachers.every(t => !!(attState.teacherRecords[t.id] || {})[weekId]);
 }
 function toggleBulkTeachers(weekId) {
+  if (!guardEditable()) return;
   if (weekTeachersAllChecked(weekId)) uncheckTeachers(weekId);
   else bulkCheckTeachers(weekId);
 }
@@ -199,8 +221,8 @@ function attClassTableHtml(cls, weeks) {
   const weekHeaders = weeks.map(w => {
     const allChecked = weekClassAllChecked(cls, w.id);
     return `
-    <th class="att-week">${escapeHtml(w.label)}<button class="week-del" title="이 주 삭제" onclick="removeWeek('${w.id}')">×</button>
-    <br><button class="bulk-btn ${allChecked ? "bulk-btn-on" : ""}" onclick="toggleBulkClass('${cls.id}','${w.id}')">${allChecked ? "전원 해제" : "전원 출석"}</button></th>`;
+    <th class="att-week">${escapeHtml(w.label)}<button class="week-del edit-only-btn" title="이 주 삭제" onclick="removeWeek('${w.id}')">×</button>
+    <br><button class="bulk-btn edit-only-btn ${allChecked ? "bulk-btn-on" : ""}" onclick="toggleBulkClass('${cls.id}','${w.id}')">${allChecked ? "전원 해제" : "전원 출석"}</button></th>`;
   }).join("");
 
   const rows = cls.members.map(m => {
@@ -208,7 +230,7 @@ function attClassTableHtml(cls, weeks) {
     let total = 0;
     const cells = weeks.map(w => {
       const chk = !!rec[w.id]; if (chk) total++;
-      return `<td><input type="checkbox" class="att-check" ${chk?"checked":""} onchange="toggleAttendance('${m.id}','${w.id}',this.checked)"></td>`;
+      return `<td><input type="checkbox" class="att-check" ${chk?"checked":""} ${isViewingCurrentYear()?"":"disabled"} onchange="toggleAttendance('${m.id}','${w.id}',this.checked)"></td>`;
     }).join("");
     return `<tr><td class="att-name">${escapeHtml(m.name)}</td>${cells}<td class="att-total">${total}</td></tr>`;
   }).join("");
@@ -229,8 +251,8 @@ function teacherTableHtml(weeks) {
   const weekHeaders = weeks.map(w => {
     const allChecked = weekTeachersAllChecked(w.id);
     return `
-    <th class="att-week">${escapeHtml(w.label)}<button class="week-del" title="삭제" onclick="removeWeek('${w.id}')">×</button>
-    <br><button class="bulk-btn ${allChecked ? "bulk-btn-on" : ""}" onclick="toggleBulkTeachers('${w.id}')">${allChecked ? "전원 해제" : "전원 출석"}</button></th>`;
+    <th class="att-week">${escapeHtml(w.label)}<button class="week-del edit-only-btn" title="삭제" onclick="removeWeek('${w.id}')">×</button>
+    <br><button class="bulk-btn edit-only-btn ${allChecked ? "bulk-btn-on" : ""}" onclick="toggleBulkTeachers('${w.id}')">${allChecked ? "전원 해제" : "전원 출석"}</button></th>`;
   }).join("");
 
   const rows = state.teachers.map(t => {
@@ -238,7 +260,7 @@ function teacherTableHtml(weeks) {
     let total = 0;
     const cells = weeks.map(w => {
       const chk = !!rec[w.id]; if (chk) total++;
-      return `<td><input type="checkbox" class="att-check" ${chk?"checked":""} onchange="toggleTeacherAttendance('${t.id}','${w.id}',this.checked)"></td>`;
+      return `<td><input type="checkbox" class="att-check" ${chk?"checked":""} ${isViewingCurrentYear()?"":"disabled"} onchange="toggleTeacherAttendance('${t.id}','${w.id}',this.checked)"></td>`;
     }).join("");
     return `<tr><td class="att-name">${escapeHtml(t.name)}</td>${cells}<td class="att-total">${total}</td></tr>`;
   }).join("");

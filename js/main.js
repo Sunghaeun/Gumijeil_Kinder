@@ -48,7 +48,7 @@ async function init() {
     metaState = await loadMeta();
     viewYear = metaState.currentYear;
     state = await loadState(viewYear);
-    attState = await loadAttendance();
+    attState = await loadAttendance(viewYear);
   } catch (e) {
     console.error(e);
     if (loadingEl) loadingEl.textContent = "데이터를 불러오지 못했습니다. 새로고침 해주세요.";
