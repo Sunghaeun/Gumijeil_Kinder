@@ -852,6 +852,115 @@ const SEED_DATA = {
 let state = null;
 let editingMemberId = null;
 
+/* ===== 연도별 반별명단 관리 =====
+   반별명단(roster)과 선생님 명단(teachers)은 하나의 state 안에 함께 들어있으므로, 연도가
+   바뀌면 이 둘을 통째로 "roster_2026" 같은 연도별 키로 나눠서 저장합니다. 출석부(attendance)는
+   이 앱의 원래 범위대로 연도 구분 없이 그대로 하나만 유지합니다(사용자 확인 완료 사항).
+   - roster_meta: { currentYear: 2026, years: [2022,2023,...,2026] } - 존재하는 연도 목록과
+     "지금 편집 가능한(=최신) 연도"를 담습니다.
+   - roster_<year>: 그 연도의 전체 state (예전 "roster" 키와 같은 모양).
+   과거 연도(roster_meta.currentYear보다 작은 연도)는 화면에서 조회만 가능하고 수정은 막습니다. */
+
+const LEGACY_ROSTER_KEY = "roster";
+const YEAR_RETENTION_COUNT = 5; // 최근 5개 연도만 보관, 그보다 오래된 연도는 자동 파기
+
+let metaState = null;   // { currentYear, years: [...] }
+let viewYear = null;    // 지금 화면에 보여주고 있는 연도 (currentYear와 다르면 읽기 전용)
+
+function rosterKeyForYear(year) { return `roster_${year}`; }
+function isViewingCurrentYear() { return !!(metaState && viewYear === metaState.currentYear); }
+
+/* 반/사람/선생님을 실제로 바꾸는 함수들 맨 앞에서 호출합니다. 과거 연도를 보는 중이면
+   토스트로 안내하고 false를 반환합니다 (버튼은 CSS로도 숨기지만, 혹시 모를 경우를 대비한
+   이중 방어). */
+function guardEditable() {
+  if (!isViewingCurrentYear()) {
+    toast("⚠ 지난 연도 자료는 수정할 수 없습니다.");
+    return false;
+  }
+  return true;
+}
+
+/* roster_meta를 불러옵니다. 아직 연도별 구조로 전환되지 않은(= 예전 "roster" 키만 있는)
+   최초 실행 상태라면, 그 예전 데이터를 "올해" 연도의 데이터로 자동 이전하고 roster_meta를
+   새로 만듭니다. (선생님 명단도 이 안에 함께 들어있으므로 같이 이전됩니다.) */
+async function loadMeta() {
+  let meta = null;
+  try { meta = await apiGet("roster_meta"); } catch (e) { console.error("roster_meta 불러오기 실패", e); }
+  if (meta && Array.isArray(meta.years) && meta.years.length) return meta;
+
+  const currentYear = new Date().getFullYear();
+  let legacy = null;
+  try { legacy = await apiGet(LEGACY_ROSTER_KEY); } catch (e) { console.error(e); }
+
+  const newMeta = { currentYear, years: [currentYear] };
+  if (legacy) {
+    try { await apiPut(rosterKeyForYear(currentYear), legacy); }
+    catch (e) { console.error("예전 데이터를 연도별 데이터로 옮기지 못했습니다.", e); }
+  }
+  try { await apiPut("roster_meta", newMeta); } catch (e) { console.error(e); }
+  return newMeta;
+}
+
+/* [변경] localStorage.getItem 대신 서버(API)에서, 그것도 연도별 키에서 불러옵니다.
+   서버에 저장된 데이터가 없으면(=완전히 새로운 연도) 최초 1회 SEED_DATA로 초기 상태를 만듭니다. */
+async function loadState(year) {
+  try {
+    const remote = await apiGet(rosterKeyForYear(year));
+    if (remote) return migrateState(remote);
+  } catch (e) {
+    console.error("불러오기 실패, 기본 데이터로 시작합니다.", e);
+  }
+  return buildInitialState(SEED_DATA);
+}
+
+/* [변경] localStorage.setItem 대신 서버(API)로, 연도별 키에 저장합니다. 지금 보고 있는 연도가
+   "현재 연도"가 아니면(=과거 자료를 조회 중이면) 저장하지 않고 안내만 합니다. */
+function saveState() {
+  if (!state) return;
+  if (!isViewingCurrentYear()) {
+    toast("⚠ 지난 연도 자료는 수정할 수 없습니다.");
+    return;
+  }
+  apiPut(rosterKeyForYear(viewYear), state).catch(() => toast("⚠ 저장 실패 - 인터넷 연결을 확인하세요."));
+}
+
+/* 연도 선택 드롭다운에서 다른 연도를 선택했을 때 호출합니다. */
+async function switchYear(year) {
+  year = parseInt(year, 10);
+  if (isNaN(year) || year === viewYear) return;
+  viewYear = year;
+  state = await loadState(year);
+  render();
+  renderYearSelector();
+}
+
+/* 5년 지난 연도 자료를 자동으로 파기합니다 (최근 5개 연도만 보관). */
+async function purgeOldYears() {
+  if (!metaState) return;
+  const sorted = [...metaState.years].sort((a, b) => b - a);
+  const keep = sorted.slice(0, YEAR_RETENTION_COUNT);
+  const purge = sorted.slice(YEAR_RETENTION_COUNT);
+  if (!purge.length) return;
+  for (const y of purge) {
+    try { await apiDelete(rosterKeyForYear(y)); } catch (e) { console.error("연도 자료 파기 실패", y, e); }
+  }
+  metaState.years = keep;
+  try { await apiPut("roster_meta", metaState); } catch (e) { console.error(e); }
+}
+
+/* 한글파일 업로드로 새 연도의 반별명단을 확정 반영할 때 호출합니다.
+   newState: buildInitialState()와 같은 모양의 완성된 state 객체.
+   makeCurrent: true면 이 연도를 새로운 "현재(편집 가능) 연도"로 바꿉니다
+   (미래 연도를 처음 업로드하는 경우). 이미 있는 과거 연도를 정정하는 업로드라면 false. */
+async function saveYearData(year, newState, makeCurrent) {
+  await apiPut(rosterKeyForYear(year), newState);
+  if (!metaState.years.includes(year)) metaState.years.push(year);
+  if (makeCurrent) metaState.currentYear = year;
+  await apiPut("roster_meta", metaState);
+  await purgeOldYears();
+}
+
 function buildInitialState(seed) {
   let uid = 1;
   const nextId = () => "m" + (uid++);

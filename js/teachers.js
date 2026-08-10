@@ -17,7 +17,7 @@ function renderTeacherRoster() {
           <div class="count-badge">${state.teachers.length}명</div>
         </div>
         <ul class="member-list">${rows || `<div class="empty-note">등록된 선생님이 없습니다.</div>`}</ul>
-        <div class="add-row"><button class="btn-ghost btn-mini" onclick="openTeacherAddModal()">+ 선생님 추가</button></div>
+        <div class="add-row edit-only-btn"><button class="btn-ghost btn-mini" onclick="openTeacherAddModal()">+ 선생님 추가</button></div>
       </div>
     </div>
   </div>`;
@@ -39,14 +39,14 @@ function teacherRowHtml(t) {
   const sub = [dobDisplay, t.phone, t.address, t.gender].filter(Boolean).join(" · ");
   return `
   <li class="member-row" data-tid="${t.id}">
-    <span class="drag-handle" draggable="true" title="드래그해서 순서 변경">⠿</span>
+    <span class="drag-handle edit-only-btn" draggable="true" title="드래그해서 순서 변경">⠿</span>
     <div class="member-main" onclick="toggleTeacherDetail('${t.id}')">
       <div class="member-name">${escapeHtml(t.name)}${genderTag(t.gender)}</div>
       <div class="member-sub">${escapeHtml(sub) || "&nbsp;"}</div>
     </div>
     <div class="member-actions">
-      <button class="btn-mini btn-ghost" onclick="openTeacherEditModal('${t.id}')">수정</button>
-      <button class="btn-mini btn-ghost" onclick="deleteTeacher('${t.id}')">삭제</button>
+      <button class="btn-mini btn-ghost edit-only-btn" onclick="openTeacherEditModal('${t.id}')">수정</button>
+      <button class="btn-mini btn-ghost edit-only-btn" onclick="deleteTeacher('${t.id}')">삭제</button>
     </div>
   </li>
   <div class="detail-panel" id="tdetail-${t.id}">
@@ -106,6 +106,7 @@ function bindTeacherDragEvents() {
 }
 
 function reorderTeacher(draggedId, targetId, before) {
+  if (!guardEditable()) return;
   const fromIdx = state.teachers.findIndex(t => t.id === draggedId);
   if (fromIdx === -1) return;
   const [moved] = state.teachers.splice(fromIdx, 1);
@@ -120,6 +121,7 @@ function reorderTeacher(draggedId, targetId, before) {
 function toggleTeacherDetail(tid) { const el = document.getElementById("tdetail-" + tid); if (el) el.classList.toggle("open"); }
 
 function openTeacherAddModal() {
+  if (!guardEditable()) return;
   editingTeacherId = null;
   document.getElementById("teacherModalTitle").textContent = "선생님 추가";
   ["tFName","tFPhone","tFAddress","tFNote"].forEach(id => document.getElementById(id).value = "");
@@ -132,6 +134,7 @@ function openTeacherAddModal() {
 }
 
 function openTeacherEditModal(tid) {
+  if (!guardEditable()) return;
   const t = state.teachers.find(x => x.id === tid); if (!t) return;
   editingTeacherId = tid;
   document.getElementById("teacherModalTitle").textContent = "선생님 정보 수정";
@@ -151,6 +154,7 @@ function openTeacherEditModal(tid) {
 function closeTeacherModal() { document.getElementById("teacherModalBackdrop").classList.remove("open"); editingTeacherId = null; }
 
 function saveTeacherModal() {
+  if (!guardEditable()) return;
   const name = document.getElementById("tFName").value.trim();
   if (!name) { alert("이름을 입력해주세요."); return; }
   const unknownYear = document.getElementById("tFDobUnknownYear").checked;
@@ -175,6 +179,7 @@ function saveTeacherModal() {
 }
 
 function deleteTeacher(tid) {
+  if (!guardEditable()) return;
   const t = state.teachers.find(x => x.id === tid); if (!t) return;
   if (!confirm(`'${t.name}' 선생님을 삭제할까요?`)) return;
   state.teachers = state.teachers.filter(x => x.id !== tid);

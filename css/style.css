@@ -6,6 +6,12 @@ header h1{margin:0 0 6px;font-size:22px;letter-spacing:.5px;}
 header .sub{font-size:13px;color:#d9dfe8;opacity:.9;}
 .header-logout{position:absolute;top:14px;right:16px;background:rgba(255,255,255,.15);color:#fff;padding:6px 12px;font-size:12px;border-radius:8px;}
 .header-logout:hover{background:rgba(255,255,255,.28);}
+.year-bar{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;}
+.year-bar label{font-size:12.5px;color:#d9dfe8;}
+.year-bar select{font-size:13.5px;font-weight:700;padding:5px 8px;border-radius:8px;border:none;background:#fff;color:var(--navy);}
+.year-readonly-badge{font-size:11.5px;background:rgba(255,255,255,.16);color:#f4e6c4;padding:4px 9px;border-radius:20px;}
+.year-bar .btn-mini{padding:6px 10px;}
+body.readonly-year .edit-only-btn{display:none !important;}
 .wrap{max-width:1180px;margin:0 auto;padding:22px 16px 0;}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04);}
 .toolbar .stats{font-size:13px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;}

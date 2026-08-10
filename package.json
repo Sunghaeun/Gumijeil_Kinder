@@ -4,7 +4,8 @@
   "private": true,
   "description": "구미제일교회 유치부 반별명단 관리 시스템 (Vercel + Supabase)",
   "scripts": {
-    "seed": "node db/seed-import.js"
+    "seed": "node db/seed-import.js",
+    "seed-years": "node db/seed-dummy-years.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4"

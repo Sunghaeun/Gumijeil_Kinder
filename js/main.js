@@ -28,6 +28,12 @@ function bindEvents() {
   document.getElementById("teacherPrintOptBackdrop").addEventListener("click", (e) => { if (e.target.id === "teacherPrintOptBackdrop") closeTeacherPrintOpt(); });
   window.addEventListener("afterprint", () => { document.body.classList.remove("print-att", "print-cal", "print-teachers"); });
 
+  document.getElementById("yearSelect").addEventListener("change", (e) => switchYear(e.target.value));
+  document.getElementById("btnUploadRoster").addEventListener("click", () => document.getElementById("rosterUploadInput").click());
+  document.getElementById("rosterUploadInput").addEventListener("change", handleRosterFileSelected);
+  document.getElementById("rosterUploadPreviewBackdrop").addEventListener("click", (e) => { if (e.target.id === "rosterUploadPreviewBackdrop") closeRosterUploadPreview(); });
+  document.getElementById("rosterUploadYearInput").addEventListener("change", refreshRosterUploadDiff);
+
   const logoutBtn = document.getElementById("btnLogout");
   if (logoutBtn) logoutBtn.addEventListener("click", logout);
 }
@@ -39,7 +45,9 @@ async function init() {
   const wrapEl = document.querySelector(".wrap");
 
   try {
-    state = await loadState();
+    metaState = await loadMeta();
+    viewYear = metaState.currentYear;
+    state = await loadState(viewYear);
     attState = await loadAttendance();
   } catch (e) {
     console.error(e);

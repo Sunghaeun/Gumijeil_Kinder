@@ -1,0 +1,8 @@
+# Vercel 파이썬 서버리스 함수(api/parse-roster-hwp.py)용 의존성.
+# hwp5(pyhwp) 자체는 이 저장소에 소스를 그대로 벤더링했으므로(api/_vendor/hwp5) 설치할
+# 필요가 없고, hwp5가 내부적으로 필요로 하는 순수 의존성들만 설치하면 됩니다.
+beautifulsoup4>=4.12
+lxml>=5.0
+olefile>=0.47
+cryptography>=42.0
+six>=1.16

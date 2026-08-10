@@ -2,12 +2,26 @@
 /* ===== 렌더링 ===== */
 
 function render() {
+  document.body.classList.toggle("readonly-year", !isViewingCurrentYear());
+  renderYearSelector();
   renderStats(); renderAgeGroups();
   renderSpecialCard("newClassContainer", findClass("c_new"), "new-card");
   renderSpecialCard("altListContainer", findClass("c_alt"), "alt-card");
   renderFootnote(); populateClassSelect(); populateAgeDatalist();
   renderTeacherRoster();
   buildPrintArea(); renderAttendance(); buildPrintAreaAtt(); buildPrintAreaTeachers();
+}
+
+/* 헤더의 연도 드롭다운/읽기전용 배지를 그립니다. */
+function renderYearSelector() {
+  const sel = document.getElementById("yearSelect");
+  const badge = document.getElementById("yearReadonlyBadge");
+  if (!sel || !metaState) return;
+  const sortedYears = [...metaState.years].sort((a, b) => b - a);
+  sel.innerHTML = sortedYears.map(y =>
+    `<option value="${y}"${y === viewYear ? " selected" : ""}>${y}년${y === metaState.currentYear ? " (현재)" : ""}</option>`
+  ).join("");
+  if (badge) badge.style.display = isViewingCurrentYear() ? "none" : "";
 }
 
 function renderStats() {
@@ -36,10 +50,10 @@ function memberRowHtml(cls, m) {
     </div>
     <div class="member-actions">
       ${cls.kind === "alt"
-        ? `<button class="btn-mini btn-ghost" onclick="openRestoreFlow('${m.id}')">🔀</button>`
-        : `<button class="btn-mini btn-ghost" onclick="moveToAlt('${m.id}')" title="별명부로 이동">🔀</button>`}
-      <button class="btn-mini btn-ghost" onclick="openEditModal('${m.id}')">수정</button>
-      <button class="btn-mini btn-ghost" onclick="deleteMember('${m.id}')">삭제</button>
+        ? `<button class="btn-mini btn-ghost edit-only-btn" onclick="openRestoreFlow('${m.id}')">🔀</button>`
+        : `<button class="btn-mini btn-ghost edit-only-btn" onclick="moveToAlt('${m.id}')" title="별명부로 이동">🔀</button>`}
+      <button class="btn-mini btn-ghost edit-only-btn" onclick="openEditModal('${m.id}')">수정</button>
+      <button class="btn-mini btn-ghost edit-only-btn" onclick="deleteMember('${m.id}')">삭제</button>
     </div>
   </li>
   <div class="detail-panel" id="detail-${m.id}">
@@ -58,15 +72,15 @@ function classCardHtml(cls, extraClass) {
     : `<div class="empty-note">등록된 인원이 없습니다.</div>`;
   const classActions = cls.kind === "regular" ? `
     <div class="class-head-actions">
-      <button class="btn-mini btn-ghost" onclick="openClassModal('${cls.id}')" title="반 정보 수정">✏️</button>
-      <button class="btn-mini btn-ghost" onclick="deleteClass('${cls.id}')" title="반 삭제">🗑</button>
+      <button class="btn-mini btn-ghost edit-only-btn" onclick="openClassModal('${cls.id}')" title="반 정보 수정">✏️</button>
+      <button class="btn-mini btn-ghost edit-only-btn" onclick="deleteClass('${cls.id}')" title="반 삭제">🗑</button>
     </div>` : "";
   return `
   <div class="class-card ${extraClass || ""}" data-cid="${cls.id}">
     <div class="class-card-head"><div><div class="title">${escapeHtml(cls.name)}</div><div class="teachers">${escapeHtml(teacherStr)}</div></div>
     <div class="card-head-right"><div class="count-badge">${cls.members.length}명</div>${classActions}</div></div>
     ${membersHtml}
-    <div class="add-row"><button class="btn-ghost btn-mini" onclick="openAddModal('${cls.id}')">+ 이 반에 사람 추가</button></div>
+    <div class="add-row edit-only-btn"><button class="btn-ghost btn-mini" onclick="openAddModal('${cls.id}')">+ 이 반에 사람 추가</button></div>
   </div>`;
 }
 
@@ -170,6 +184,7 @@ function buildPrintArea(opts) {
 function toggleDetail(mid) { const el = document.getElementById("detail-" + mid); if (el) el.classList.toggle("open"); }
 
 function openAddModal(preferClassId) {
+  if (!guardEditable()) return;
   editingMemberId = null;
   document.getElementById("modalTitle").textContent = "사람 추가";
   ["fName","fPhone","fAddress","fNote"].forEach(id => document.getElementById(id).value = "");
@@ -181,6 +196,7 @@ function openAddModal(preferClassId) {
 }
 
 function openEditModal(mid) {
+  if (!guardEditable()) return;
   const loc = findMemberLocation(mid); if (!loc) return;
   editingMemberId = mid; const m = loc.cls.members[loc.idx];
   document.getElementById("modalTitle").textContent = "사람 정보 수정";
@@ -198,6 +214,7 @@ function openEditModal(mid) {
 function closeModal() { document.getElementById("modalBackdrop").classList.remove("open"); editingMemberId = null; }
 
 function saveModal() {
+  if (!guardEditable()) return;
   const name = document.getElementById("fName").value.trim();
   if (!name) { alert("이름을 입력해주세요."); return; }
   const targetClassId = document.getElementById("fClass").value;
@@ -221,6 +238,7 @@ function saveModal() {
 }
 
 function deleteMember(mid) {
+  if (!guardEditable()) return;
   const loc = findMemberLocation(mid); if (!loc) return;
   const m = loc.cls.members[loc.idx];
   if (!confirm(`'${m.name}' 님을 명단에서 완전히 삭제할까요?`)) return;
@@ -228,6 +246,7 @@ function deleteMember(mid) {
 }
 
 function moveToAlt(mid) {
+  if (!guardEditable()) return;
   const loc = findMemberLocation(mid); if (!loc || loc.cls.kind === "alt") return;
   const m = loc.cls.members[loc.idx];
   if (!confirm(`'${m.name}' 님을 별명부로 이동할까요?`)) return;
@@ -237,6 +256,7 @@ function moveToAlt(mid) {
 }
 
 function openRestoreFlow(mid) {
+  if (!guardEditable()) return;
   const loc = findMemberLocation(mid); if (!loc) return;
   const m = loc.cls.members[loc.idx];
   const regularClasses = state.classes.filter(c => c.kind !== "alt");
@@ -256,6 +276,7 @@ function openRestoreFlow(mid) {
 let editingClassId = null;
 
 function openClassModal(classId) {
+  if (!guardEditable()) return;
   populateAgeDatalist();
   if (classId) {
     const cls = findClass(classId);
@@ -277,6 +298,7 @@ function openClassModal(classId) {
 function closeClassModal() { document.getElementById("classModalBackdrop").classList.remove("open"); editingClassId = null; }
 
 function saveClassModal() {
+  if (!guardEditable()) return;
   const age = document.getElementById("cAge").value.trim();
   const name = document.getElementById("cName").value.trim();
   const teachersRaw = document.getElementById("cTeachers").value.trim();
@@ -302,6 +324,7 @@ function saveClassModal() {
 }
 
 function deleteClass(classId) {
+  if (!guardEditable()) return;
   const cls = findClass(classId);
   if (!cls || cls.kind !== "regular") return;
   const memberCount = cls.members.length;

@@ -50,6 +50,17 @@ async function apiPut(key, data) {
   return res.json();
 }
 
+async function apiDelete(key) {
+  const session = getSession();
+  const res = await fetch(`/api/state?key=${encodeURIComponent(key)}`, {
+    method: "DELETE",
+    headers: { "Authorization": "Bearer " + (session ? session.access_token : "") }
+  });
+  if (res.status === 401) { clearSession(); location.href = "login.html"; return null; }
+  if (!res.ok) throw new Error("삭제 실패");
+  return res.json();
+}
+
 /* 보호된 페이지(index.html) 맨 위에서 호출: 로그인 안 되어 있으면 로그인 화면으로 이동 */
 function requireLogin() {
   if (!isLoggedIn()) {
