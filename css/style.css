@@ -237,7 +237,11 @@ table.sw-summary-table th{background:#eee;}
 .login-card .field input{width:100%;}
 .login-card button{width:100%;padding:11px;font-size:14px;}
 .login-error{color:var(--danger);font-size:12.5px;margin:-6px 0 14px;min-height:1em;}
-.loading-note{text-align:center;color:var(--muted);font-size:13px;padding:60px 16px;}
+.loading-note{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;color:var(--muted);font-size:13px;padding:90px 16px;}
+.loading-note .spinner{width:38px;height:38px;border:4px solid var(--line);border-top-color:var(--navy);border-radius:50%;animation:loading-spin .8s linear infinite;}
+.loading-note.is-error .spinner{display:none;}
+.loading-note.is-error #loadingText{color:var(--danger);}
+@keyframes loading-spin{to{transform:rotate(360deg);}}
 
 @page{size:A4;margin:10mm 8mm;}
 @media print{

@@ -42,6 +42,7 @@ async function init() {
   if (!requireLogin()) return; // 로그인 안 되어 있으면 login.html로 이동하고 중단
 
   const loadingEl = document.getElementById("loadingNote");
+  const loadingTextEl = document.getElementById("loadingText");
   const wrapEl = document.querySelector(".wrap");
 
   try {
@@ -51,7 +52,8 @@ async function init() {
     attState = await loadAttendance(viewYear);
   } catch (e) {
     console.error(e);
-    if (loadingEl) loadingEl.textContent = "데이터를 불러오지 못했습니다. 새로고침 해주세요.";
+    if (loadingEl) loadingEl.classList.add("is-error");
+    if (loadingTextEl) loadingTextEl.textContent = "데이터를 불러오지 못했습니다. 새로고침 해주세요.";
     return;
   }
 
