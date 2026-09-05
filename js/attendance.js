@@ -38,6 +38,23 @@ async function loadAttendance(year) {
           p.freeNotes.push({ id: "note0", content: p.calNote, createdAt: now, updatedAt: now });
         }
       }
+
+      // [재적 인원 스냅샷 보정] 예전에 만들어진 주차는 "그 주 시점 재적 인원수"가 저장되어
+      //있지 않으므로, 지금 이 순간의 재적 인원으로 한 번 얼려서(snapshot) 채워줍니다.
+      // 이후로는 반/선생님 명단이 바뀌어도 이 주차의 숫자는 더 이상 안 바뀝니다.
+      // (이 시점 이전 과거의 정확한 인원수까지 되살릴 수는 없지만, 적어도 지금부터는
+      // 반/교사 명단을 바꿔도 지난 주차 숫자가 계속 흔들리는 문제는 사라집니다.)
+      let backfilled = false;
+      p.weeks.forEach(w => {
+        if (typeof w.studentDenom !== "number" || typeof w.teacherDenom !== "number") {
+          w.studentDenom = studentDenominator();
+          w.teacherDenom = teacherDenominator();
+          backfilled = true;
+        }
+      });
+      if (backfilled && typeof metaState !== "undefined" && metaState && year === metaState.currentYear) {
+        apiPut(attendanceKeyForYear(year), p).catch(() => {});
+      }
       return p;
     }
   } catch (e) {
@@ -70,7 +87,9 @@ function ensureWeekForDate(dateStr) {
   let wk = attState.weeks.find(w => w.label === dateStr);
   if (wk) return wk.id;
   const id = "w" + Date.now() + Math.floor(Math.random() * 1000);
-  attState.weeks.push({ id, label: dateStr });
+  const week = { id, label: dateStr };
+  snapshotWeekDenom(week); // 이 주차가 생기는 "지금" 시점의 재적 인원수를 그대로 얼려둡니다.
+  attState.weeks.push(week);
   attState.weeks.sort((a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
   return id;
 }
@@ -105,7 +124,9 @@ function addWeek() {
   const label = prompt("추가할 주의 날짜를 입력하세요 (예: 2026-01-04)", suggested);
   if (label === null) return;
   const id = "w" + Date.now();
-  attState.weeks.push({ id, label: label.trim() || suggested || ("주 " + (attState.weeks.length + 1)) });
+  const week = { id, label: label.trim() || suggested || ("주 " + (attState.weeks.length + 1)) };
+  snapshotWeekDenom(week);
+  attState.weeks.push(week);
   saveAttendance(); renderAttendance(); toast("새로운 주가 추가되었습니다.");
 }
 
@@ -196,6 +217,44 @@ function toggleBulkTeachers(weekId) {
 function attendanceClasses() { return state.classes.filter(c => c.kind === "regular" || c.kind === "new" || c.kind === "alt"); }
 function studentDenominator() { return totalRegular() + findClass("c_alt").members.length; }
 function teacherDenominator() { return state.teachers.length; }
+
+/* ===== 주차별 "그 시점 재적 인원수" 스냅샷 =====
+   등반/별명부 이동/삭제 등으로 반별명단이 바뀌면 studentDenominator()/teacherDenominator()의
+   값도 즉시 바뀌는데, 여기에만 의존하면 이미 지난 주차들의 "재적 대비 출석" 표시까지 전부
+   지금 인원수로 다시 계산되어 버립니다(예: 이번 주에 새 아이가 등반하면 지난달 주차까지
+   전부 +1명으로 보임). 그래서 각 주차가 "만들어질 때"와 "그 이후로 반/교사 명단이 바뀔 때"의
+   인원수를 week.studentDenom / week.teacherDenom에 그대로 얼려서 저장하고, 화면/인쇄 모두
+   이 스냅샷 값을 우선 사용합니다. */
+function snapshotWeekDenom(week) {
+  week.studentDenom = studentDenominator();
+  week.teacherDenom = teacherDenominator();
+}
+
+function weekStudentDenom(week) {
+  return (week && typeof week.studentDenom === "number") ? week.studentDenom : studentDenominator();
+}
+
+function weekTeacherDenom(week) {
+  return (week && typeof week.teacherDenom === "number") ? week.teacherDenom : teacherDenominator();
+}
+
+/* 반별명단/선생님 명단이 바뀔 때마다(js/data.js의 saveState()에서) 호출합니다.
+   이미 지난(오늘보다 이전 날짜) 주차의 스냅샷은 그대로 두고, 오늘 및 이후 주차만 최신
+   인원수로 다시 얼립니다 - "바뀌기 전 주는 그대로, 바뀐 주부터는 새 인원수로" 요구사항. */
+function syncFutureWeekDenoms() {
+  if (!attState || !Array.isArray(attState.weeks) || !attState.weeks.length) return;
+  const today = todayStr();
+  let changed = false;
+  attState.weeks.forEach(w => {
+    if (typeof w.label === "string" && w.label >= today) {
+      const newS = studentDenominator(), newT = teacherDenominator();
+      if (w.studentDenom !== newS || w.teacherDenom !== newT) changed = true;
+      w.studentDenom = newS;
+      w.teacherDenom = newT;
+    }
+  });
+  if (changed) saveAttendance();
+}
 
 function weekStudentCount(weekId) {
   let n = 0;
@@ -305,9 +364,9 @@ function parentCountTableHtml(weeks) {
 
 function weeklySummaryTableHtml(weeks) {
   weeks = weeks || attState.weeks;
-  const sDenom = studentDenominator(), tDenom = teacherDenominator();
   const rows = weeks.map(w => {
     const sC = weekStudentCount(w.id), tC = weekTeacherCount(w.id);
+    const sDenom = weekStudentDenom(w), tDenom = weekTeacherDenom(w);
     return `<tr><td class="att-name">${escapeHtml(w.label)}</td><td>${sC} / ${sDenom}명</td><td>${tC} / ${tDenom}명</td></tr>`;
   }).join("");
   return `<div class="att-class-block summary-block"><h3>📊 주별 출석 총합계 (학생 / 교사)</h3>
@@ -374,8 +433,7 @@ function printTeacherTableCompact(weeks) {
 }
 
 function printSummaryCompact(weeks) {
-  const sDenom = studentDenominator(), tDenom = teacherDenominator();
-  const rows = weeks.map(w => `<tr><td>${escapeHtml(w.label)}</td><td>${weekStudentCount(w.id)}/${sDenom}</td><td>${weekTeacherCount(w.id)}/${tDenom}</td></tr>`).join("");
+  const rows = weeks.map(w => `<tr><td>${escapeHtml(w.label)}</td><td>${weekStudentCount(w.id)}/${weekStudentDenom(w)}</td><td>${weekTeacherCount(w.id)}/${weekTeacherDenom(w)}</td></tr>`).join("");
   return `<div class="print-class-block"><h3>주별 합계</h3>
     <table class="print-table" style="font-size:8px;"><tr><th>주차</th><th>학생</th><th>교사</th></tr>${rows}</table></div>`;
 }
@@ -454,7 +512,7 @@ function buildSingleWeekAttSheet(week) {
   const ages = [...new Set(state.classes.filter(c => c.kind === "regular").map(c => c.age))];
   const cols = ages.map(age => singleWeekAgeColumnHtml(age, week.id)).join("") + singleWeekTeacherColumnHtml(week.id);
   const sC = weekStudentCount(week.id), tC = weekTeacherCount(week.id), pC = getParentCount(week.id);
-  const sDenom = studentDenominator(), tDenom = teacherDenominator();
+  const sDenom = weekStudentDenom(week), tDenom = weekTeacherDenom(week);
   const grandTotal = sC + tC + pC;
 
   container.innerHTML = `<div class="print-page single-week-page">

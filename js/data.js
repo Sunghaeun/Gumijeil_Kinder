@@ -887,13 +887,32 @@ function guardEditable() {
 async function loadMeta() {
   let meta = null;
   try { meta = await apiGet("roster_meta"); } catch (e) { console.error("roster_meta 불러오기 실패", e); }
-  if (meta && Array.isArray(meta.years) && meta.years.length) return meta;
+
+  if (meta && Array.isArray(meta.years) && meta.years.length) {
+    // [버그 수정 후 1회성 보정] 예전 코드에 실수가 있어서, 연도별 구조를 도입한 뒤에도
+    // saveState()가 실제로는 계속 예전 "roster" 키에만 저장되고 있었습니다(연도별 키가
+    // 아니라). 그래서 그동안 실제로 수정한 최신 내용은 "roster"에 있고, "roster_<올해>"는
+    // 오래된 상태로 남아있을 수 있습니다. 딱 한 번만 "roster"의 내용을 올해 데이터로
+    // 덮어써서 최신 수정 내용을 살립니다(이후로는 이 보정을 다시 하지 않습니다 -
+    // legacyReconciled 플래그로 표시).
+    if (!meta.legacyReconciled) {
+      let legacy = null;
+      try { legacy = await apiGet(LEGACY_ROSTER_KEY); } catch (e) { console.error(e); }
+      if (legacy) {
+        try { await apiPut(rosterKeyForYear(meta.currentYear), legacy); }
+        catch (e) { console.error("최근 수정 내용을 연도별 데이터로 옮기지 못했습니다.", e); }
+      }
+      meta.legacyReconciled = true;
+      try { await apiPut("roster_meta", meta); } catch (e) { console.error(e); }
+    }
+    return meta;
+  }
 
   const currentYear = new Date().getFullYear();
   let legacy = null;
   try { legacy = await apiGet(LEGACY_ROSTER_KEY); } catch (e) { console.error(e); }
 
-  const newMeta = { currentYear, years: [currentYear] };
+  const newMeta = { currentYear, years: [currentYear], legacyReconciled: true };
   if (legacy) {
     try { await apiPut(rosterKeyForYear(currentYear), legacy); }
     catch (e) { console.error("예전 데이터를 연도별 데이터로 옮기지 못했습니다.", e); }
@@ -932,6 +951,9 @@ function saveState() {
     toast("⚠ 지난 연도 자료는 수정할 수 없습니다.");
     return;
   }
+  // 반/교사 명단이 바뀔 때마다, 이미 지난 출석 주차의 "그 당시 재적 인원수" 스냅샷은
+  // 건드리지 않고 오늘 이후 주차만 최신 인원수로 갱신합니다 (js/attendance.js).
+  if (typeof syncFutureWeekDenoms === "function") syncFutureWeekDenoms();
   apiPut(rosterKeyForYear(viewYear), state).catch(() => toast("⚠ 저장 실패 - 인터넷 연결을 확인하세요."));
 }
 
@@ -1021,25 +1043,6 @@ function migrateState(s) {
   }
   if (!s.teacherUidCounter) s.teacherUidCounter = s.teachers.length + 1;
   return s;
-}
-
-/* [변경] localStorage.getItem 대신 서버(API)에서 불러옵니다. 서버에 저장된 데이터가 없으면
-   최초 1회 SEED_DATA로 초기 상태를 만듭니다. */
-async function loadState() {
-  try {
-    const remote = await apiGet("roster");
-    if (remote) return migrateState(remote);
-  } catch (e) {
-    console.error("불러오기 실패, 기본 데이터로 시작합니다.", e);
-  }
-  return buildInitialState(SEED_DATA);
-}
-
-/* [변경] localStorage.setItem 대신 서버(API)로 저장합니다. 실패해도 화면 동작은 막지 않고
-   토스트로만 알립니다(다음 저장 때 재시도됨). */
-function saveState() {
-  if (!state) return;
-  apiPut("roster", state).catch(() => toast("⚠ 저장 실패 - 인터넷 연결을 확인하세요."));
 }
 
 /* ===== 유틸 ===== */
