@@ -18,7 +18,7 @@ function defaultAttendanceState(year) {
   const calMonth = (year === undefined || year === realCurrentYear)
     ? now.toISOString().slice(0, 7)
     : `${year}-01`;
-  return { weeks: [], records: {}, teacherRecords: {}, calMonth, dateNotes: {}, freeNotes: [], autoInitedMonths: [] };
+  return { weeks: [], records: {}, teacherRecords: {}, parentCounts: {}, calMonth, dateNotes: {}, freeNotes: [], autoInitedMonths: [] };
 }
 
 /* [변경] localStorage 대신 서버(API)에서, 연도별 키로 불러옵니다. */
@@ -27,6 +27,7 @@ async function loadAttendance(year) {
     const p = await apiGet(attendanceKeyForYear(year));
     if (p && Array.isArray(p.weeks) && p.records) {
       if (!p.teacherRecords) p.teacherRecords = {};
+      if (!p.parentCounts) p.parentCounts = {};
       if (!p.calMonth) p.calMonth = new Date().toISOString().slice(0, 7);
       if (!p.dateNotes) p.dateNotes = {};
       if (!p.autoInitedMonths) p.autoInitedMonths = [];
@@ -115,6 +116,7 @@ function removeWeek(weekId) {
   attState.weeks = attState.weeks.filter(w => w.id !== weekId);
   Object.values(attState.records).forEach(rec => { delete rec[weekId]; });
   Object.values(attState.teacherRecords).forEach(rec => { delete rec[weekId]; });
+  if (attState.parentCounts) delete attState.parentCounts[weekId];
   saveAttendance(); renderAttendance();
 }
 
@@ -273,6 +275,32 @@ function teacherTableHtml(weeks) {
     ${rows}<tr class="att-sumrow"><td>주별 합계</td>${weekSums}<td>${grand}</td></tr></table></div>`;
 }
 
+/* ===== 주별 부모님 참석 인원 (이름 없이 숫자만) ===== */
+
+function getParentCount(weekId) { return (attState.parentCounts || {})[weekId] || 0; }
+
+function setParentCount(weekId, rawVal) {
+  if (!guardEditable()) return;
+  const val = Math.max(0, parseInt(rawVal, 10) || 0);
+  if (!attState.parentCounts) attState.parentCounts = {};
+  attState.parentCounts[weekId] = val;
+  saveAttendance(); renderAttendance();
+}
+
+function parentCountTableHtml(weeks) {
+  weeks = weeks || attState.weeks;
+  const cells = weeks.map(w => `
+    <td><input type="number" min="0" step="1" class="parent-count-input" value="${getParentCount(w.id)}"
+      ${isViewingCurrentYear() ? "" : "disabled"} onchange="setParentCount('${w.id}', this.value)"></td>`).join("");
+  return `<div class="att-class-block parent-count-block">
+    <h3>👪 주별 부모님 참석 인원 (이름 없이 숫자만)</h3>
+    <table class="att-table">
+      <tr><th>구분</th>${weeks.map(w => `<th class="att-week">${escapeHtml(w.label)}</th>`).join("")}</tr>
+      <tr><td class="att-name">부모님 수</td>${cells}</tr>
+    </table>
+  </div>`;
+}
+
 /* ===== 주별 합계 요약 ===== */
 
 function weeklySummaryTableHtml(weeks) {
@@ -296,7 +324,7 @@ function renderAttendance() {
     html += `<div class="att-empty">이번 달에 등록된 출석 주차가 없습니다. (일요일은 자동으로 추가돼요 — 캘린더에서 삭제한 주차만 다시 나타나지 않습니다) 필요하면 "+ 새 주 추가" 버튼으로 직접 추가할 수 있어요.</div>`;
     container.innerHTML = html; bindCalNoteEvents(); return;
   }
-  html += weeklySummaryTableHtml(monthWeeks) + teacherTableHtml(monthWeeks);
+  html += weeklySummaryTableHtml(monthWeeks) + teacherTableHtml(monthWeeks) + parentCountTableHtml(monthWeeks);
   const ages = [...new Set(state.classes.filter(c => c.kind === "regular").map(c => c.age))];
   ages.forEach(age => {
     const classesOfAge = state.classes.filter(c => c.kind === "regular" && c.age === age);
@@ -425,15 +453,16 @@ function buildSingleWeekAttSheet(week) {
   const container = document.getElementById("printAreaAtt");
   const ages = [...new Set(state.classes.filter(c => c.kind === "regular").map(c => c.age))];
   const cols = ages.map(age => singleWeekAgeColumnHtml(age, week.id)).join("") + singleWeekTeacherColumnHtml(week.id);
-  const sC = weekStudentCount(week.id), tC = weekTeacherCount(week.id);
+  const sC = weekStudentCount(week.id), tC = weekTeacherCount(week.id), pC = getParentCount(week.id);
   const sDenom = studentDenominator(), tDenom = teacherDenominator();
+  const grandTotal = sC + tC + pC;
 
   container.innerHTML = `<div class="print-page single-week-page">
     <div class="print-header"><div class="p-title">${escapeHtml(state.title)} 출석체크표</div>
     <div class="p-date">${formatKoreanDate(week.label)}</div></div>
     <div class="single-week-grid">${cols}</div>
     <table class="sw-summary-table">
-      <tr><th>학생</th><td>${sC} / ${sDenom}명</td><th>교사</th><td>${tC} / ${tDenom}명</td><th>부모</th><td class="sw-blank"></td><th>합계</th><td class="sw-blank"></td></tr>
+      <tr><th>학생</th><td>${sC} / ${sDenom}명</td><th>교사</th><td>${tC} / ${tDenom}명</td><th>부모</th><td>${pC}명</td><th>합계</th><td>${grandTotal}명</td></tr>
     </table>
   </div>`;
 }
@@ -474,12 +503,14 @@ function openAttPrintOpt() {
   document.getElementById("attPrintOptBackdrop").classList.add("open");
 }
 
+/* [수정0] 여러 주차를 체크박스로 다중 선택하던 것을, 라디오 버튼으로 "한 주만" 고르도록
+   바꿨습니다 (한 주 인쇄가 훨씬 자주 쓰이고, 한 장짜리 4칼럼 인쇄도 한 주일 때만 되므로). */
 function renderAttPrintWeekList(ym) {
   const weeks = weeksInMonth(ym);
   const html = weeks.length
-    ? weeks.map(w => `
+    ? weeks.map((w, i) => `
       <div class="att-print-week-item">
-        <input type="checkbox" class="attp-week-cb" value="${w.id}" checked>
+        <input type="radio" name="attpWeek" class="attp-week-radio" value="${w.id}" ${i === 0 ? "checked" : ""}>
         <label>${escapeHtml(w.label)}</label>
       </div>`).join("")
     : `<div class="att-empty">이 달에 등록된 출석 주차가 없습니다.</div>`;
@@ -493,14 +524,10 @@ function attPrintMonthChanged() {
 
 function closeAttPrintOpt() { document.getElementById("attPrintOptBackdrop").classList.remove("open"); }
 
-function attPrintSelectAll(checked) {
-  document.querySelectorAll(".attp-week-cb").forEach(cb => { cb.checked = checked; });
-}
-
 function doPrintAttendance() {
-  const selected = [...document.querySelectorAll(".attp-week-cb:checked")].map(cb => cb.value);
-  if (!selected.length) { alert("인쇄할 주차를 1개 이상 선택해주세요."); return; }
-  buildPrintAreaAtt(selected);
+  const selected = document.querySelector(".attp-week-radio:checked");
+  if (!selected) { alert("인쇄할 주차를 선택해주세요."); return; }
+  buildPrintAreaAtt([selected.value]);
   closeAttPrintOpt();
   document.body.classList.add("print-att");
   setTimeout(() => window.print(), 100);
