@@ -352,7 +352,7 @@ function parentCountTableHtml(weeks) {
     <td><input type="number" min="0" step="1" class="parent-count-input" value="${getParentCount(w.id)}"
       ${isViewingCurrentYear() ? "" : "disabled"} onchange="setParentCount('${w.id}', this.value)"></td>`).join("");
   return `<div class="att-class-block parent-count-block">
-    <h3>👪 주별 부모님 참석 인원 (이름 없이 숫자만)</h3>
+    <h3>👪 주별 부모님 참석 인원 </h3>
     <table class="att-table">
       <tr><th>구분</th>${weeks.map(w => `<th class="att-week">${escapeHtml(w.label)}</th>`).join("")}</tr>
       <tr><td class="att-name">부모님 수</td>${cells}</tr>
