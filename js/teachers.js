@@ -30,7 +30,9 @@ function formatTeacherDob(t) {
   if (parts.length < 3) return t.dob;
   const yy = parts[0].trim(), mo = parts[1].trim(), dd = parts[2].trim();
   const calLabel = t.calType === "lunar" ? "(음)" : "";
-  if (yy === "00") return `${mo}.${dd}${calLabel} (연도 미상)`;
+  /* [버그 수정] 두 자리 연도 "00"만 보고 "연도 미상"이라고 판단하면 실제 2000년생과
+     구분이 안 되므로, 진짜 연도 모름 여부는 별도로 저장된 dobYearUnknown 필드로만 판단합니다. */
+  if (t.dobYearUnknown) return `${mo}.${dd}${calLabel} (연도 미상)`;
   return `${yy}.${mo}.${dd}${calLabel}`;
 }
 
@@ -139,9 +141,9 @@ function openTeacherEditModal(tid) {
   editingTeacherId = tid;
   document.getElementById("teacherModalTitle").textContent = "선생님 정보 수정";
   document.getElementById("tFName").value = t.name || "";
-  const isUnknownYear = !!(t.dob && t.dob.split(".")[0].trim() === "00");
+  const isUnknownYear = !!t.dobYearUnknown;
   document.getElementById("tFDobUnknownYear").checked = isUnknownYear;
-  document.getElementById("tFDob").value = dotDobToIso(t.dob, 1900);
+  document.getElementById("tFDob").value = dotDobToIso(t.dob);
   document.getElementById("tFCalType").value = t.calType || "solar";
   document.getElementById("tFGender").value = t.gender || "";
   document.getElementById("tFPhone").value = t.phone || "";
@@ -161,6 +163,7 @@ function saveTeacherModal() {
   const d = {
     name,
     dob: isoDobToDot(document.getElementById("tFDob").value, unknownYear),
+    dobYearUnknown: unknownYear,
     calType: document.getElementById("tFCalType").value,
     gender: document.getElementById("tFGender").value,
     phone: document.getElementById("tFPhone").value.trim(),

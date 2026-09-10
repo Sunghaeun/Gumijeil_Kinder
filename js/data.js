@@ -1030,7 +1030,8 @@ function migrateState(s) {
   if (!s.teachers) {
     s.teachers = (SEED_DATA.teachers || []).map((t, i) => ({
       id: "t" + (i + 1), name: t.name, dob: t.dob || "", calType: t.calType || "solar",
-      gender: t.gender || "", phone: t.phone || "", note: t.note || ""
+      gender: t.gender || "", phone: t.phone || "", note: t.note || "",
+      dobYearUnknown: !!(t.dob && t.dob.split(".")[0].trim() === "00")
     }));
   } else {
     s.teachers.forEach(t => {
@@ -1039,6 +1040,14 @@ function migrateState(s) {
       if (t.gender === undefined) t.gender = "";
       if (t.phone === undefined) t.phone = "";
       if (t.note === undefined) t.note = "";
+      // [버그 수정] 예전에는 생년월일 두 자리 연도가 "00"이면 무조건 "연도 미상"으로
+      // 취급했는데, 이러면 실제 2000년생 선생님도 전부 "연도 미상"으로 오인됩니다.
+      // 이제는 dobYearUnknown이라는 별도 필드로 "진짜 연도 모름"을 저장하므로, 이 필드가
+      // 아직 없는 기존 자료에 한해서만 예전 방식(연도가 "00"이면 미상)으로 한 번 채워줍니다.
+      // 이후로 수정 화면에서 실제 연도(2000년 등)로 바로잡아 저장하면 정상적으로 구분됩니다.
+      if (t.dobYearUnknown === undefined) {
+        t.dobYearUnknown = !!(t.dob && t.dob.split(".")[0].trim() === "00");
+      }
     });
   }
   if (!s.teacherUidCounter) s.teacherUidCounter = s.teachers.length + 1;
@@ -1058,24 +1067,22 @@ function genClassId() { return "c" + Date.now(); }
 
 /* ===== 생년월일 달력 입력 변환 =====
    저장 형식은 원래대로 "YY.MM.DD"(2자리 연도)를 유지하고, <input type="date"> 달력
-   위젯과 서로 변환하는 도우미만 추가합니다. 선생님 데이터 중 연도를 모르는 경우 "00"을
-   특수값으로 써왔는데(예: "00.01.25"), 그 의미를 그대로 보존하기 위해 달력에는 임시로
-   1900년을 넣어 표시하고, 저장할 때 unknownYear가 true면 다시 "00"으로 되돌립니다. */
-function dotDobToIso(dob, unknownYearPlaceholder) {
+   위젯과 서로 변환하는 도우미만 추가합니다.
+   [버그 수정] 예전에는 두 자리 연도가 "00"이면 무조건 "연도 모름"이라고 보고 1900년으로
+   바꿔서 보여줬는데, 이러면 실제 2000년생(두 자리로 "00")도 전부 1900년으로 잘못
+   표시되고 "연도 미상"으로 오인됐습니다. "00"도 다른 두 자리 연도와 똑같이 아래 피벗
+   규칙으로 2000년으로 정상 해석하고, "진짜 연도 모름" 여부는 선생님 데이터의 별도 필드
+   (dobYearUnknown)로만 관리합니다. */
+function dotDobToIso(dob) {
   if (!dob) return "";
   const parts = dob.split(".");
   if (parts.length < 3) return "";
   const yy = parts[0].trim(), mo = parts[1].trim().padStart(2, "0"), dd = parts[2].trim().padStart(2, "0");
   if (!/^\d{1,2}$/.test(mo) || !/^\d{1,2}$/.test(dd)) return "";
-  let year;
-  if (yy === "00") {
-    year = unknownYearPlaceholder || 1900;
-  } else {
-    const yyNum = parseInt(yy, 10);
-    if (isNaN(yyNum)) return "";
-    const pivot = new Date().getFullYear() % 100;
-    year = yyNum <= pivot ? 2000 + yyNum : 1900 + yyNum;
-  }
+  const yyNum = parseInt(yy, 10);
+  if (isNaN(yyNum)) return "";
+  const pivot = new Date().getFullYear() % 100;
+  const year = yyNum <= pivot ? 2000 + yyNum : 1900 + yyNum;
   return `${year}-${mo}-${dd}`;
 }
 
