@@ -356,7 +356,7 @@ function weeklySummaryTableHtml(weeks) {
     const sC = weekStudentCount(w.id), tC = weekTeacherCount(w.id);
     const sDenom = weekStudentDenom(w), tDenom = weekTeacherDenom(w);
     return `<tr><td class="att-name">${escapeHtml(w.label)}</td><td>${sC} / ${sDenom}명</td><td>${tC} / ${tDenom}명</td></tr>`;
-  }).join("");
+  }).join(""); 
   return `<div class="att-class-block summary-block"><h3>📊 주별 출석 총합계 (학생 / 교사)</h3>
     <table class="att-table summary-table"><tr><th>주차</th><th>학생 출석 (재적 대비)</th><th>교사 출석 (재적 대비)</th></tr>
     ${rows || `<tr><td colspan="3" class="att-empty">주차 없음</td></tr>`}</table></div>`;
