@@ -135,7 +135,11 @@ function doPrintRoster() {
   };
   buildPrintArea(opts);
   closePrintOpt();
-  setTimeout(() => window.print(), 100);
+  /* [버그 수정] setTimeout으로 한 박자 늦춰서 print()를 호출하면 PC 브라우저에서는
+     문제없지만, 아이폰/안드로이드에서는 "버튼을 누른 직후"라는 조건이 끊어져서
+     인쇄(공유 시트에서 PDF로 저장) 자체가 조용히 무시되는 경우가 있습니다. 버튼 클릭과
+     같은 흐름 안에서 바로 호출해야 모바일에서도 인쇄/PDF 저장이 정상적으로 뜹니다. */
+  window.print();
 }
 
 function printClassTable(cls, opts) {

@@ -356,7 +356,7 @@ function weeklySummaryTableHtml(weeks) {
     const sC = weekStudentCount(w.id), tC = weekTeacherCount(w.id);
     const sDenom = weekStudentDenom(w), tDenom = weekTeacherDenom(w);
     return `<tr><td class="att-name">${escapeHtml(w.label)}</td><td>${sC} / ${sDenom}명</td><td>${tC} / ${tDenom}명</td></tr>`;
-  }).join(""); 
+  }).join("");
   return `<div class="att-class-block summary-block"><h3>📊 주별 출석 총합계 (학생 / 교사)</h3>
     <table class="att-table summary-table"><tr><th>주차</th><th>학생 출석 (재적 대비)</th><th>교사 출석 (재적 대비)</th></tr>
     ${rows || `<tr><td colspan="3" class="att-empty">주차 없음</td></tr>`}</table></div>`;
@@ -576,5 +576,7 @@ function doPrintAttendance() {
   buildPrintAreaAtt([selected.value]);
   closeAttPrintOpt();
   document.body.classList.add("print-att");
-  setTimeout(() => window.print(), 100);
+  /* [버그 수정] 모바일에서 인쇄(PDF 저장)가 안 되던 문제 - setTimeout으로 지연시키면
+     버튼 클릭 흐름이 끊겨서 모바일 브라우저가 인쇄 요청을 무시합니다. */
+  window.print();
 }

@@ -235,5 +235,7 @@ function doPrintTeachers() {
   buildPrintAreaTeachers(opts);
   closeTeacherPrintOpt();
   document.body.classList.add("print-teachers");
-  setTimeout(() => window.print(), 100);
+  /* [버그 수정] 모바일에서 인쇄(PDF 저장)가 안 되던 문제 - setTimeout으로 지연시키면
+     버튼 클릭 흐름이 끊겨서 모바일 브라우저가 인쇄 요청을 무시합니다. */
+  window.print();
 }
