@@ -101,8 +101,7 @@ function weeksInMonth(ym) {
 }
 
 /* [신규] 캘린더에 표시된 달의 일요일들을 출석 주차로 자동 등록합니다.
-   한 번 초기화된 달은 다시 자동으로 채우지 않으므로, 특정 일요일(명절 등 예배 없는 주)을
-   사용자가 삭제하면 그 상태가 그대로 유지됩니다. 실제로 새 주차를 추가했으면 true를 반환합니다. */
+   한 번 초기화된 달은 다시 자동으로 채우지 않습니다. 실제로 새 주차를 추가했으면 true를 반환합니다. */
 function ensureMonthSundaysInited(ym) {
   if (!attState.autoInitedMonths) attState.autoInitedMonths = [];
   if (attState.autoInitedMonths.includes(ym)) return false;
@@ -128,17 +127,6 @@ function addWeek() {
   snapshotWeekDenom(week);
   attState.weeks.push(week);
   saveAttendance(); renderAttendance(); toast("새로운 주가 추가되었습니다.");
-}
-
-function removeWeek(weekId) {
-  if (!guardEditable()) return;
-  const wk = attState.weeks.find(w => w.id === weekId); if (!wk) return;
-  if (!confirm(`'${wk.label}' 주차를 삭제할까요?`)) return;
-  attState.weeks = attState.weeks.filter(w => w.id !== weekId);
-  Object.values(attState.records).forEach(rec => { delete rec[weekId]; });
-  Object.values(attState.teacherRecords).forEach(rec => { delete rec[weekId]; });
-  if (attState.parentCounts) delete attState.parentCounts[weekId];
-  saveAttendance(); renderAttendance();
 }
 
 function toggleAttendance(memberId, weekId, checked) {
@@ -282,7 +270,7 @@ function attClassTableHtml(cls, weeks) {
   const weekHeaders = weeks.map(w => {
     const allChecked = weekClassAllChecked(cls, w.id);
     return `
-    <th class="att-week">${escapeHtml(w.label)}<button class="week-del edit-only-btn" title="이 주 삭제" onclick="removeWeek('${w.id}')">×</button>
+    <th class="att-week">${escapeHtml(w.label)}
     <br><button class="bulk-btn edit-only-btn ${allChecked ? "bulk-btn-on" : ""}" onclick="toggleBulkClass('${cls.id}','${w.id}')">${allChecked ? "전원 해제" : "전원 출석"}</button></th>`;
   }).join("");
 
@@ -312,7 +300,7 @@ function teacherTableHtml(weeks) {
   const weekHeaders = weeks.map(w => {
     const allChecked = weekTeachersAllChecked(w.id);
     return `
-    <th class="att-week">${escapeHtml(w.label)}<button class="week-del edit-only-btn" title="삭제" onclick="removeWeek('${w.id}')">×</button>
+    <th class="att-week">${escapeHtml(w.label)}
     <br><button class="bulk-btn edit-only-btn ${allChecked ? "bulk-btn-on" : ""}" onclick="toggleBulkTeachers('${w.id}')">${allChecked ? "전원 해제" : "전원 출석"}</button></th>`;
   }).join("");
 
@@ -380,7 +368,7 @@ function renderAttendance() {
   let html = calendarHtml();
   const monthWeeks = weeksInMonth(attState.calMonth);
   if (!monthWeeks.length) {
-    html += `<div class="att-empty">이번 달에 등록된 출석 주차가 없습니다. (일요일은 자동으로 추가돼요 — 캘린더에서 삭제한 주차만 다시 나타나지 않습니다) 필요하면 "+ 새 주 추가" 버튼으로 직접 추가할 수 있어요.</div>`;
+    html += `<div class="att-empty">이번 달에 등록된 출석 주차가 없습니다. (일요일은 자동으로 추가돼요) 필요하면 "+ 새 주 추가" 버튼으로 직접 추가할 수 있어요.</div>`;
     container.innerHTML = html; bindCalNoteEvents(); return;
   }
   html += weeklySummaryTableHtml(monthWeeks) + teacherTableHtml(monthWeeks) + parentCountTableHtml(monthWeeks);
@@ -548,7 +536,7 @@ function buildPrintAreaAtt(selectedWeekIds) {
 
   container.innerHTML = `<div class="print-page print-compact">
     <div class="print-header"><div class="p-title">${escapeHtml(state.title)} · 출석부</div>
-    <div class="p-date">선택 주차: ${weeks.length}주 · 재적: ${studentDenominator()}명 · 교사: ${teacherDenominator()}명</div></div>
+    <div class="p-date">선택 주차: ${weeks.length}주</div></div>
     ${body}</div>`;
 }
 

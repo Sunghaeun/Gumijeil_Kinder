@@ -63,9 +63,9 @@ function calNextMonth() { attState.calMonth = calShiftMonth(attState.calMonth, 1
 function calToggleDate(dateStr) {
   if (!guardEditable()) return;
   const existing = attState.weeks.find(w => w.label === dateStr);
-  /* [수정3-1] removeWeek() 안에서 이미 삭제 확인을 한 번 물어보므로, 여기서 또 물어보면
-     확인창이 2번 뜹니다. 여기서는 그냥 removeWeek()를 호출하고 확인은 그쪽에 맡깁니다. */
-  if (existing) { removeWeek(existing.id); return; }
+  /* [수정] 출석 주차 삭제 기능은 제거되었습니다. 이미 등록된 날짜를 다시 눌러도
+     아무 것도 삭제되지 않고, 아직 등록되지 않은 날짜만 새 주차로 추가할 수 있습니다. */
+  if (existing) { toast(`${dateStr}은(는) 이미 등록된 주차입니다.`); return; }
   if (!confirm(`${dateStr}을(를) 출석 주차로 추가할까요?`)) return;
   ensureWeekForDate(dateStr); saveAttendance(); renderAttendance(); toast(`${dateStr} 주차를 추가했습니다.`);
 }
@@ -125,7 +125,7 @@ function calendarHtml() {
       <div class="cal-dow">수</div><div class="cal-dow">목</div><div class="cal-dow">금</div><div class="cal-dow">토</div>
       ${cells}
     </div>
-    <div class="cal-hint">날짜 클릭 → 출석 주차 추가/삭제 · 초록 셀 = 등록된 주차 · 🎂 = 생일자 · 📝 = 날짜별 메모</div>
+    <div class="cal-hint">날짜 클릭 → 출석 주차 추가 (등록된 날짜는 삭제되지 않아요) · 초록 셀 = 등록된 주차 · 🎂 = 생일자 · 📝 = 날짜별 메모</div>
     ${calNoteHtml()}
   </div>`;
 }
