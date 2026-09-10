@@ -996,6 +996,91 @@ async function saveYearData(year, newState, makeCurrent) {
   await purgeOldYears();
 }
 
+/* ===== [신규] 한글파일 업로드 없이 새 연도 시작하기 =====
+   한글파일 업로드 파싱이 자꾸 불안정해서, 매년 반별명단을 그냥 손으로 다시 채우고 싶다는
+   요청으로 추가한 기능입니다. 아래 규칙으로 "직전에 보고 있던 연도"의 자료를 바탕으로
+   새 연도의 반별명단을 만듭니다.
+   - 반 구조(연령대/반 이름/담당교사)는 그대로 복사하되, 그 반의 아이 명단은 비웁니다.
+   - 정규반/신입반/별명부 가릴 것 없이 작년에 있던 아이 전원을 새 연도의 "별명부"로 모아
+     둡니다. 관리자가 이미 있는 🔀(반 이동) 버튼으로 한 명씩 새 반으로 배정하면 되므로,
+     이름/생년월일 등 정보를 다시 타이핑할 필요가 없습니다.
+   - 선생님 명단은 그대로 이어받습니다 (보통 담당 교사는 해마다 크게 바뀌지 않으므로). */
+function buildNewYearRosterFromPrevious(prevState) {
+  const allMembers = [];
+  (prevState.classes || []).forEach(c => {
+    (c.members || []).forEach(m => {
+      const { _fromClass, ...clean } = m;
+      allMembers.push(clean);
+    });
+  });
+
+  const classes = (prevState.classes || [])
+    .filter(c => c.kind === "regular")
+    .map(c => ({ ...c, members: [] }));
+
+  const prevNew = (prevState.classes || []).find(c => c.kind === "new");
+  classes.push({
+    id: prevNew?.id || "c_new", kind: "new", pastor: prevNew?.pastor || "",
+    name: prevNew?.name || "신입반", teachers: [...(prevNew?.teachers || [])], members: []
+  });
+
+  const prevAlt = (prevState.classes || []).find(c => c.kind === "alt");
+  classes.push({
+    id: prevAlt?.id || "c_alt", kind: "alt", pastor: prevAlt?.pastor || "",
+    name: prevAlt?.name || "별명부", teachers: [...(prevAlt?.teachers || [])], members: allMembers
+  });
+
+  const teachers = (prevState.teachers || []).map(t => ({ ...t }));
+
+  // 다음에 추가되는 신규 아이/교사의 id가 이어받은 기존 id와 겹치지 않도록, 이어받은 것들
+  // 중 가장 큰 번호 다음부터 시작하게 계산합니다.
+  const maxNum = (list, prefix) => list.reduce((mx, x) => {
+    const n = parseInt(String(x.id || "").replace(prefix, ""), 10);
+    return isNaN(n) ? mx : Math.max(mx, n);
+  }, 0);
+
+  return {
+    title: prevState.title || "",
+    updated: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
+    footnote: prevState.footnote || "",
+    summary: prevState.summary || "",
+    classes,
+    teachers,
+    uidCounter: maxNum(allMembers, "m") + 1,
+    teacherUidCounter: maxNum(teachers, "t") + 1
+  };
+}
+
+/* 연도 선택 옆의 "🆕 새 연도 시작" 버튼에서 호출합니다. */
+async function startNewYear() {
+  if (!metaState || !state) return;
+  const suggested = metaState.currentYear + 1;
+  const input = prompt(`새로 시작할 연도를 입력하세요 (예: ${suggested})`, String(suggested));
+  if (input === null) return;
+  const year = parseInt(input.trim(), 10);
+  if (isNaN(year) || year < 2000 || year > 2100) { alert("올바른 연도를 입력해주세요."); return; }
+
+  const alreadyExists = metaState.years.includes(year);
+  const msg = alreadyExists
+    ? `${year}년 자료가 이미 있습니다.\n\n지금 보고 계신 ${viewYear}년의 반 구조(반 이름/연령/담당교사)로 ${year}년 반별명단을 덮어쓸까요? 아이들은 전부 별명부로 모이고, 기존 ${year}년 자료는 사라집니다.\n\n⚠ 이 작업은 되돌릴 수 없습니다.`
+    : `${year}년을 새로운 연도로 시작할까요?\n\n지금 보고 계신 ${viewYear}년의 반 구조(반 이름/연령/담당교사)와 선생님 명단은 그대로 가져오고, 아이들은 전부 별명부로 옮겨집니다. 이후 별명부에서 🔀 버튼으로 각 아이를 새 반에 배정해주세요.`;
+  if (!confirm(msg)) return;
+
+  const newState = buildNewYearRosterFromPrevious(state);
+  try {
+    await saveYearData(year, newState, true);
+  } catch (e) {
+    console.error(e);
+    alert("새 연도를 시작하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.");
+    return;
+  }
+  viewYear = year;
+  state = await loadState(year);
+  attState = await loadAttendance(year);
+  render();
+  toast(`${year}년을 새로운 연도로 시작했습니다. 별명부에서 아이들을 반으로 옮겨주세요!`);
+}
+
 function buildInitialState(seed) {
   let uid = 1;
   const nextId = () => "m" + (uid++);

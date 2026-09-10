@@ -33,6 +33,7 @@ function bindEvents() {
 
   document.getElementById("yearSelect").addEventListener("change", (e) => switchYear(e.target.value));
   document.getElementById("btnUploadRoster").addEventListener("click", () => document.getElementById("rosterUploadInput").click());
+  document.getElementById("btnStartNewYear").addEventListener("click", startNewYear);
   document.getElementById("rosterUploadInput").addEventListener("change", handleRosterFileSelected);
   document.getElementById("rosterUploadPreviewBackdrop").addEventListener("click", (e) => { if (e.target.id === "rosterUploadPreviewBackdrop") closeRosterUploadPreview(); });
   document.getElementById("rosterUploadYearInput").addEventListener("change", refreshRosterUploadDiff);
