@@ -11,5 +11,5 @@ function switchTab(tab) {
   document.getElementById("btnPrint").style.display = tab === "roster" ? "" : "none";
   document.getElementById("searchBox").style.display = tab === "roster" ? "" : "none";
   document.getElementById("btnAddClass").style.display = tab === "roster" ? "" : "none";
-
+  document.getElementById("btnAddPerson").style.display = tab === "roster" ? "" : "none";
 }

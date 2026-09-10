@@ -11,6 +11,9 @@ function bindEvents() {
   document.getElementById("btnCancelModal").addEventListener("click", closeModal);
   document.getElementById("btnSaveModal").addEventListener("click", saveModal);
   document.getElementById("modalBackdrop").addEventListener("click", (e) => { if (e.target.id === "modalBackdrop") closeModal(); });
+  document.getElementById("btnCancelMoveClassModal").addEventListener("click", closeMoveClassModal);
+  document.getElementById("btnConfirmMoveClass").addEventListener("click", confirmMoveClassModal);
+  document.getElementById("moveClassBackdrop").addEventListener("click", (e) => { if (e.target.id === "moveClassBackdrop") closeMoveClassModal(); });
   document.getElementById("printOptBackdrop").addEventListener("click", (e) => { if (e.target.id === "printOptBackdrop") closePrintOpt(); });
   document.getElementById("searchBox").addEventListener("input", applySearch);
   document.getElementById("tabRoster").addEventListener("click", () => switchTab("roster"));

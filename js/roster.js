@@ -49,9 +49,7 @@ function memberRowHtml(cls, m) {
       <div class="member-sub">${escapeHtml(memberSubLine(m)) || "&nbsp;"}</div>
     </div>
     <div class="member-actions">
-      ${cls.kind === "alt"
-        ? `<button class="btn-mini btn-ghost edit-only-btn" onclick="openRestoreFlow('${m.id}')">🔀</button>`
-        : `<button class="btn-mini btn-ghost edit-only-btn" onclick="moveToAlt('${m.id}')" title="별명부로 이동">🔀</button>`}
+      <button class="btn-mini btn-ghost edit-only-btn" onclick="openMoveClassFlow('${m.id}')" title="반 이동">🔀</button>
       <button class="btn-mini btn-ghost edit-only-btn" onclick="openEditModal('${m.id}')">수정</button>
       <button class="btn-mini btn-ghost edit-only-btn" onclick="deleteMember('${m.id}')">삭제</button>
     </div>
@@ -245,30 +243,51 @@ function deleteMember(mid) {
   loc.cls.members.splice(loc.idx, 1); saveState(); render(); toast(`${m.name} 님을 삭제했습니다.`);
 }
 
-function moveToAlt(mid) {
-  if (!guardEditable()) return;
-  const loc = findMemberLocation(mid); if (!loc || loc.cls.kind === "alt") return;
-  const m = loc.cls.members[loc.idx];
-  if (!confirm(`'${m.name}' 님을 별명부로 이동할까요?`)) return;
-  loc.cls.members.splice(loc.idx, 1);
-  findClass("c_alt").members.push({ ...m, _fromClass: loc.cls.id });
-  saveState(); render(); toast(`${m.name} 님을 별명부로 이동했습니다.`);
+/* ===== [수정] 반 이동 모달 (별명부로 이동 / 별명부에서 복귀 / 다른 반으로 이동 공용)
+   예전에는 숫자를 입력하는 prompt()나 곧바로 별명부로 보내버리는 confirm()으로 처리했지만,
+   이제는 하나의 모달에서 드롭다운으로 이동할 반을 직접 선택합니다. */
+let movingMemberId = null;
+
+function classMoveLabel(c) {
+  return c.kind === "regular" ? `${c.age} ${c.name}` : c.name;
 }
 
-function openRestoreFlow(mid) {
+function openMoveClassFlow(mid) {
   if (!guardEditable()) return;
   const loc = findMemberLocation(mid); if (!loc) return;
+  movingMemberId = mid;
   const m = loc.cls.members[loc.idx];
-  const regularClasses = state.classes.filter(c => c.kind !== "alt");
-  const labels = regularClasses.map((c, i) => `${i + 1}. ${c.kind === "regular" ? c.age + " " + c.name : c.name}`).join("\n");
-  const pick = prompt(`'${m.name}' 님을 복귀시킬 반의 번호:\n\n${labels}`, "");
-  if (pick === null) return;
-  const idx = parseInt(pick, 10) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= regularClasses.length) { alert("올바른 번호를 입력해주세요."); return; }
+  document.getElementById("moveClassMemberName").textContent = `'${m.name}' 님 (현재: ${classMoveLabel(loc.cls)})을(를) 이동할 반을 선택해주세요.`;
+  const sel = document.getElementById("moveClassSelect");
+  const options = state.classes.filter(c => c.id !== loc.cls.id);
+  sel.innerHTML = options.map(c => `<option value="${c.id}">${escapeHtml(classMoveLabel(c))}</option>`).join("");
+  document.getElementById("moveClassBackdrop").classList.add("open");
+}
+
+function closeMoveClassModal() {
+  document.getElementById("moveClassBackdrop").classList.remove("open");
+  movingMemberId = null;
+}
+
+function confirmMoveClassModal() {
+  if (!guardEditable()) return;
+  if (!movingMemberId) { closeMoveClassModal(); return; }
+  const loc = findMemberLocation(movingMemberId);
+  if (!loc) { closeMoveClassModal(); return; }
+  const targetId = document.getElementById("moveClassSelect").value;
+  const target = findClass(targetId);
+  if (!target) { closeMoveClassModal(); return; }
+  const m = loc.cls.members[loc.idx];
   loc.cls.members.splice(loc.idx, 1);
-  const { _fromClass, ...clean } = m;
-  regularClasses[idx].members.push(clean);
-  saveState(); render(); toast(`${m.name} 님을 ${regularClasses[idx].name}(으)로 복귀했습니다.`);
+  if (target.kind === "alt") {
+    target.members.push({ ...m, _fromClass: loc.cls.id });
+  } else {
+    const { _fromClass, ...clean } = m;
+    target.members.push(clean);
+  }
+  saveState(); render();
+  toast(`${m.name} 님을 ${classMoveLabel(target)}(으)로 이동했습니다.`);
+  closeMoveClassModal();
 }
 
 /* ===== 반 추가 / 수정 / 삭제 ===== */

@@ -112,6 +112,19 @@
   </div>
 </div>
 
+<!-- Move Class Modal (별명부로 이동 / 별명부에서 복귀 / 다른 반으로 이동 공용) -->
+<div class="modal-backdrop" id="moveClassBackdrop">
+  <div class="modal">
+    <h3>반 이동</h3>
+    <p id="moveClassMemberName" style="font-size:13px;color:var(--muted);margin:0 0 14px;"></p>
+    <div class="field"><label>이동할 반</label><select id="moveClassSelect"></select></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelMoveClassModal">취소</button>
+      <button class="btn-primary" id="btnConfirmMoveClass">이동</button>
+    </div>
+  </div>
+</div>
+
 <!-- Print Options Modal -->
 <div class="modal-backdrop" id="printOptBackdrop">
   <div class="modal">
